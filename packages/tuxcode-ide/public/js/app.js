@@ -23,10 +23,11 @@ function request() {
 }
 function refreshButtons() {
   const ready = Boolean(selectedScheme());
-  $('btnBuild').disabled = busy || !ready || $('devicePicker').value !== 'isim';
-  $('btnRun').disabled = $('btnBuild').disabled;
+  $('btnBuild').disabled = busy || !ready;
+  $('btnRun').disabled = busy || !ready;
   $('inspectPlan').disabled = busy || !ready;
-  $('btnBuild').title = $('devicePicker').value === 'isim' ? 'Build selected scheme with isim' : 'Device/Apple Simulator build backend not implemented; inspect the plan instead';
+  $('btnBuild').title = 'Build selected scheme';
+  $('btnRun').title = 'Build & Run';
 }
 function schemeChanged() {
   const scheme = selectedScheme();
@@ -39,6 +40,8 @@ function schemeChanged() {
 }
 async function openProject(projectPath) {
   report = null; refreshButtons();
+  $('statusText').textContent = 'Loading project...';
+  log('[TuxCode] Opening: ' + projectPath);
   const metadata = await api('project', { projectPath });
   options('workspacePicker', metadata.containers.map(c => [c.path, c.name]));
   $('projectPath').value = projectPath;
@@ -61,10 +64,21 @@ async function selectContainer() {
     }));
     return item;
   }));
-  $('statusText').textContent = 'Project loaded';
+  $('statusText').textContent = 'Project loaded: ' + report.containers[0].name;
+  log('[TuxCode] Discovered ' + report.schemes.length + ' schemes, ' + files.length + ' source files.');
+  const firstCodeFile = files.find(f => /\.(mm|m|h|swift|json|tsx|jsx|js|ts)$/.test(f.name));
+  if (firstCodeFile) {
+    const result = await api('file-content', { projectPath, filePath: firstCodeFile.path });
+    $('activeTabName').textContent = firstCodeFile.name;
+    $('codeEditor').value = result.content;
+  }
 }
-async function safe(fn) { try { await fn(); } catch (error) { log(error.message); $('statusText').textContent = 'Action failed — see output'; } }
-$('openProject').onclick = () => safe(() => openProject($('projectPath').value));
+async function safe(fn) { try { await fn(); } catch (error) { log(error.message); $('statusText').textContent = 'Action failed: ' + error.message; } }
+$('openProject').onclick = () => safe(() => {
+  const p = $('projectPath').value.trim() || 'test-projects/rnn-upstream/playground/ios';
+  $('projectPath').value = p;
+  return openProject(p);
+});
 $('sampleProject').onclick = () => safe(() => openProject('test-projects/rnn-upstream/playground/ios'));
 $('workspacePicker').onchange = () => safe(selectContainer);
 $('schemePickerInput').onchange = schemeChanged;
@@ -103,3 +117,58 @@ window.addEventListener('keydown', event => {
   }
 });
 updateTargetView();
+
+// AI Copilot Plugin
+if ($('toggleCopilot')) {
+  $('toggleCopilot').onclick = () => {
+    $('copilotPanel').style.display = $('copilotPanel').style.display === 'none' ? 'flex' : 'none';
+    $('toggleCopilot').classList.toggle('active');
+  };
+}
+
+async function sendCopilotMessage(customPrompt) {
+  const input = $('copilotInput');
+  const text = customPrompt || input.value.trim();
+  if (!text) return;
+  if (!customPrompt) input.value = '';
+
+  const chat = $('copilotChat');
+  const userDiv = document.createElement('div');
+  userDiv.style.cssText = 'background: #1f6feb; color: #fff; padding: 8px 10px; border-radius: 6px; align-self: flex-end; max-width: 85%;';
+  userDiv.textContent = text;
+  chat.appendChild(userDiv);
+  chat.scrollTop = chat.scrollHeight;
+
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.style.cssText = 'background: #21262d; color: #8b949e; padding: 8px 10px; border-radius: 6px; font-style: italic;';
+  thinkingDiv.textContent = '🤖 Thinking...';
+  chat.appendChild(thinkingDiv);
+  chat.scrollTop = chat.scrollHeight;
+
+  try {
+    const res = await api('llm/chat', {
+      prompt: text,
+      code: $('codeEditor').value,
+      activeFile: $('activeTabName').textContent,
+      provider: $('llmProvider').value
+    });
+    thinkingDiv.remove();
+    const aiDiv = document.createElement('div');
+    aiDiv.style.cssText = 'background: #21262d; color: #c9d1d9; padding: 8px 10px; border-radius: 6px; white-space: pre-wrap; line-height: 1.4;';
+    aiDiv.innerHTML = `<strong>🤖 TuxCode Copilot:</strong><br>${res.reply.replace(/</g, '&lt;').replace(/>/g, '&gt;')}`;
+    chat.appendChild(aiDiv);
+  } catch (err) {
+    thinkingDiv.textContent = '❌ ' + err.message;
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+if ($('btnSendPrompt')) $('btnSendPrompt').onclick = () => sendCopilotMessage();
+if ($('copilotInput')) $('copilotInput').onkeydown = e => { if (e.key === 'Enter') sendCopilotMessage(); };
+if ($('btnFixErrors')) $('btnFixErrors').onclick = () => sendCopilotMessage('Analyze current build diagnostics and fix errors.');
+if ($('btnOvernightMode')) $('btnOvernightMode').onclick = async () => {
+  sendCopilotMessage('Activate Overnight Autonomous Task Loop (00:00 to 07:00).');
+  const res = await api('llm/overnight', {});
+  log('[Overnight Task] ' + res.message);
+  $('statusText').textContent = 'Overnight Loop Active (00:00 - 07:00)';
+};
