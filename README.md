@@ -114,10 +114,12 @@ Your iPhone (e.g. `Connected iPhone (iPhone17,2)`) will be recognized immediatel
 
 TuxCode includes a packaged extension: **`vscode-tuxcode-0.1.0.vsix`**.
 
-### Installation
-1. In VS Code, press `Ctrl+Shift+X` (Extensions).
-2. Click the `...` menu in the top-right of the Extensions panel.
-3. Select **"Install from VSIX..."** and choose `vscode-tuxcode-0.1.0.vsix`.
+### Installation (Windows 11 or Linux)
+1. **If using Windows 11**: Open your project in VS Code connected to WSL:
+   - In your WSL terminal, run: `code .` (or in Windows VS Code, click the green `><` button in the bottom-left and choose **"Connect to WSL"**).
+2. In VS Code, press `Ctrl+Shift+X` (Extensions).
+3. Click the `...` menu in the top-right of the Extensions panel.
+4. Select **"Install from VSIX..."** and choose `vscode-tuxcode-0.1.0.vsix`.
 
 ### Features
 - **Activity Bar View**: Browse connected iOS devices and trigger 1-click actions.
