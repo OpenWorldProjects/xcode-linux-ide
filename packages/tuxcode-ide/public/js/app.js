@@ -1,171 +1,105 @@
-const editor = document.getElementById('codeEditor');
-const activeTab = document.getElementById('activeTabName');
-const statusText = document.getElementById('statusText');
-const consoleLog = document.getElementById('consoleLog');
-const btnBuild = document.getElementById('btnBuild');
-const btnRun = document.getElementById('btnRun');
-const toggleMirror = document.getElementById('toggleMirror');
-const mirrorPanel = document.getElementById('mirrorPanel');
-const toggleConsole = document.getElementById('toggleConsole');
-const consolePanel = document.getElementById('consolePanel');
-const fileItems = document.querySelectorAll('.tree-item');
-
-const DEFAULT_IOS_DIR = 'test-projects/rn-wix-sample/ios';
-
-// File mapping
-const files = {
-  'AppDelegate.mm': `${DEFAULT_IOS_DIR}/RNWixApp/AppDelegate.mm`,
-  'AppDelegate.h': `${DEFAULT_IOS_DIR}/RNWixApp/AppDelegate.h`,
-  'main.m': `${DEFAULT_IOS_DIR}/RNWixApp/main.m`,
-  'Info.plist': `${DEFAULT_IOS_DIR}/RNWixApp/Info.plist`,
-  'Podfile': `${DEFAULT_IOS_DIR}/Podfile`
-};
-
-let currentFile = 'AppDelegate.mm';
-
-async function loadFile(name) {
-  currentFile = name;
-  activeTab.textContent = name;
-  const filePath = files[name];
-  try {
-    const res = await fetch(`/api/file-content?path=${encodeURIComponent(filePath)}`);
-    if (res.ok) {
-      editor.value = await res.text();
-    }
-  } catch (err) {
-    editor.value = `// Failed to load ${name}: ${err.message}`;
-  }
+const $ = id => document.getElementById(id);
+let report = null;
+let busy = false;
+const log = text => { $('consoleLog').textContent += '\n' + text; $('consoleLog').scrollTop = $('consoleLog').scrollHeight; };
+async function api(route, data = {}) {
+  const res = await fetch('/api/' + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  const result = await res.json();
+  if (!res.ok) throw new Error(result.error || result.output || 'Request failed');
+  return result;
 }
-
-fileItems.forEach(item => {
-  item.addEventListener('click', () => {
-    fileItems.forEach(i => i.classList.remove('active'));
-    item.classList.add('active');
-    loadFile(item.getAttribute('data-file'));
+function options(id, values) {
+  $(id).replaceChildren(...values.map(([value, label]) => {
+    const option = document.createElement('option'); option.value = value; option.textContent = label; return option;
+  }));
+}
+function selectedScheme() { return report?.schemes.find(s => s.id === $('schemePickerInput').value); }
+function request() {
+  const data = { projectPath: $('workspacePicker').value, scheme: $('schemePickerInput').value,
+    configuration: $('configurationPicker').value, destination: $('devicePicker').value };
+  for (const field of ['buildEnvironment', 'launchEnvironment', 'buildSettings']) data[field] = JSON.parse($(field).value || '{}');
+  if ($('launchArguments').value.trim()) data.launchArguments = JSON.parse($('launchArguments').value);
+  return data;
+}
+function refreshButtons() {
+  const ready = Boolean(selectedScheme());
+  $('btnBuild').disabled = busy || !ready || $('devicePicker').value !== 'isim';
+  $('btnRun').disabled = $('btnBuild').disabled;
+  $('inspectPlan').disabled = busy || !ready;
+  $('btnBuild').title = $('devicePicker').value === 'isim' ? 'Build selected scheme with isim' : 'Device/Apple Simulator build backend not implemented; inspect the plan instead';
+}
+function schemeChanged() {
+  const scheme = selectedScheme();
+  const configs = [...new Set(report.projects.flatMap(p => p.targets.flatMap(t => t.configurations)))];
+  options('configurationPicker', configs.map(c => [c, c]));
+  if (scheme && configs.includes(scheme.configuration)) $('configurationPicker').value = scheme.configuration;
+  $('launchEnvironment').value = '{}';
+  $('launchArguments').value = '';
+  refreshButtons();
+}
+async function openProject(projectPath) {
+  report = null; refreshButtons();
+  const metadata = await api('project', { projectPath });
+  options('workspacePicker', metadata.containers.map(c => [c.path, c.name]));
+  $('projectPath').value = projectPath;
+  await selectContainer();
+}
+async function selectContainer() {
+  const projectPath = $('workspacePicker').value;
+  report = await api('project', { projectPath });
+  $('projectName').textContent = report.containers[0].name;
+  options('schemePickerInput', report.schemes.map(s => [s.id, s.name]));
+  $('projectDiagnostics').textContent = report.diagnostics.join('\n');
+  schemeChanged();
+  const files = await api('files', { projectPath });
+  $('fileTree').replaceChildren(...files.map(file => {
+    const item = document.createElement('div'); item.className = 'tree-item';
+    item.textContent = file.path.slice(projectPath.slice(0, projectPath.lastIndexOf('/')).length + 1);
+    item.addEventListener('click', () => safe(async () => {
+      const result = await api('file-content', { projectPath, filePath: file.path });
+      $('activeTabName').textContent = file.name; $('codeEditor').value = result.content;
+    }));
+    return item;
+  }));
+  $('statusText').textContent = 'Project loaded';
+}
+async function safe(fn) { try { await fn(); } catch (error) { log(error.message); $('statusText').textContent = 'Action failed — see output'; } }
+$('openProject').onclick = () => safe(() => openProject($('projectPath').value));
+$('sampleProject').onclick = () => safe(() => openProject('test-projects/rnn-upstream/playground/ios'));
+$('workspacePicker').onchange = () => safe(selectContainer);
+$('schemePickerInput').onchange = schemeChanged;
+$('inspectPlan').onclick = () => safe(async () => {
+  const plan = await api('plan', request());
+  log(JSON.stringify(plan, null, 2));
+  $('projectDiagnostics').textContent = plan.blockers.join('\n') || 'Plan inspected. Backend compatibility still requires a build.';
+});
+for (const action of ['build', 'run']) {
+  $(action === 'build' ? 'btnBuild' : 'btnRun').onclick = () => safe(async () => {
+    const selection = request(); busy = true; refreshButtons();
+    $('statusText').textContent = `${action}: ${$('schemePickerInput').selectedOptions[0].textContent} (${selection.configuration})`;
+    try {
+      const result = await api(action, selection); log(result.output);
+      $('statusText').textContent = action === 'build' ? 'Build succeeded' : 'Build succeeded; isim launch requested';
+    } finally { busy = false; refreshButtons(); }
   });
-});
-
-// Build Action
-btnBuild.addEventListener('click', async () => {
-  statusText.textContent = 'RNWixApp : Compiling with Clang & Ninja...';
-  log('[TuxCode] Starting Build...');
-  try {
-    const res = await fetch('/api/build', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectPath: DEFAULT_IOS_DIR })
-    });
-    const data = await res.json();
-    log(data.output);
-    if (data.success) {
-      statusText.textContent = 'RNWixApp : Build Succeeded';
-    } else {
-      statusText.textContent = 'RNWixApp : Build Failed';
-    }
-  } catch (err) {
-    log('[Error] ' + err.message);
-    statusText.textContent = 'RNWixApp : Build Failed';
-  }
-});
-
-// Run Action
-btnRun.addEventListener('click', async () => {
-  statusText.textContent = 'RNWixApp : Deploying to iPhone over USB...';
-  log('[TuxCode] Deploying to iPhone over USB...');
-  try {
-    const res = await fetch('/api/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectPath: DEFAULT_IOS_DIR })
-    });
-    const data = await res.json();
-    log(data.output);
-    if (data.success) {
-      statusText.textContent = 'RNWixApp : Running on iPhone';
-    } else {
-      statusText.textContent = 'RNWixApp : Deploy Finished';
-    }
-  } catch (err) {
-    log('[Error] ' + err.message);
-    statusText.textContent = 'RNWixApp : Deploy Failed';
-  }
-});
-
-function log(text) {
-  consoleLog.textContent += '\n' + text;
-  consoleLog.scrollTop = consoleLog.scrollHeight;
 }
-
-document.getElementById('clearConsole').addEventListener('click', () => {
-  consoleLog.textContent = '';
-});
-
-toggleMirror.addEventListener('click', () => {
-  mirrorPanel.style.display = mirrorPanel.style.display === 'none' ? 'flex' : 'none';
-  toggleMirror.classList.toggle('active');
-});
-
-toggleConsole.addEventListener('click', () => {
-  consolePanel.style.display = consolePanel.style.display === 'none' ? 'flex' : 'none';
-  toggleConsole.classList.toggle('active');
-});
-
-// Keyboard shortcuts (⌘B / Ctrl+B for build, ⌘R / Ctrl+R for run)
-window.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-    e.preventDefault();
-    btnBuild.click();
-  } else if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-    e.preventDefault();
-    btnRun.click();
-  }
-});
-
-// Device destinations, in toolbar order: USB, Apple Simulator, isim.
-const devicePicker = document.getElementById('devicePicker');
-const connBadge = document.getElementById('connBadge');
-const mirrorIframe = document.getElementById('mirrorIframe');
-const isimPanel = document.getElementById('isimPanel');
-const openIsim = document.getElementById('openIsim');
-
 function updateTargetView() {
+  const target = $('devicePicker').value;
+  $('isimPanel').hidden = target !== 'isim'; $('mirrorIframe').hidden = target === 'isim';
   const host = window.location.hostname || '127.0.0.1';
-  const target = devicePicker.value;
-  const isIsim = target === 'isim';
-  isimPanel.hidden = !isIsim;
-  mirrorIframe.hidden = isIsim;
-  // Do not accidentally build/deploy the physical-device target when isim is selected.
-  btnBuild.disabled = isIsim;
-  btnRun.disabled = isIsim;
-  btnBuild.title = isIsim ? 'Project builds for isim are not connected yet' : 'Build Project (Ctrl+B)';
-  btnRun.title = isIsim ? 'Use Open isim to launch the simulator' : 'Build & Run on Device (Ctrl+R)';
-  if (isIsim) {
-    mirrorIframe.src = 'about:blank';
-    connBadge.textContent = 'isim • Desktop window';
-  } else if (target === 'apple') {
-    connBadge.textContent = 'Apple Simulator • Port 6080';
-    mirrorIframe.src = `http://${host}:6080/vnc.html?autoconnect=true`;
-  } else {
-    connBadge.textContent = 'USB Mirror • Port 8080';
-    mirrorIframe.src = `http://${host}:8080`;
-  }
+  $('mirrorIframe').src = target === 'isim' ? 'about:blank' : target === 'apple' ? `http://${host}:6080/vnc.html?autoconnect=true` : `http://${host}:8080`;
+  $('connBadge').textContent = target === 'isim' ? 'isim • Desktop window' : target === 'apple' ? 'Apple Simulator • Port 6080' : 'USB Mirror • Port 8080';
+  refreshButtons();
 }
-
-devicePicker.addEventListener('change', updateTargetView);
-openIsim.addEventListener('click', async () => {
-  openIsim.disabled = true;
-  try {
-    const res = await fetch('/api/isim/open', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Unable to launch isim');
-    log('[isim] ' + data.message);
-  } catch (err) {
-    log('[isim] ' + err.message);
-  } finally {
-    openIsim.disabled = false;
+$('devicePicker').onchange = updateTargetView;
+$('openIsim').onclick = () => safe(async () => log((await api('isim/open')).message));
+$('clearConsole').onclick = () => { $('consoleLog').textContent = ''; };
+for (const [button, panel] of [['toggleMirror', 'mirrorPanel'], ['toggleConsole', 'consolePanel']]) {
+  $(button).onclick = () => { $(panel).style.display = $(panel).style.display === 'none' ? 'flex' : 'none'; $(button).classList.toggle('active'); };
+}
+window.addEventListener('keydown', event => {
+  if ((event.ctrlKey || event.metaKey) && ['b', 'r'].includes(event.key)) {
+    event.preventDefault(); $(event.key === 'b' ? 'btnBuild' : 'btnRun').click();
   }
 });
 updateTargetView();
-
-// Initial load
-loadFile('AppDelegate.mm');

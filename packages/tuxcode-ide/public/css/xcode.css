@@ -279,3 +279,14 @@ select.scheme-device:focus-visible { outline: 2px solid var(--accent-blue); }
 #isimPanel { padding: 20px; color: var(--text-muted); }
 #openIsim { width: auto; padding: 8px 12px; }
 .tool-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.sidebar { width: 310px; min-width: 260px; overflow-y: auto; }
+.project-controls { padding: 12px; display: grid; gap: 10px; }
+.project-controls label { display: grid; gap: 4px; font-size: 12px; }
+.project-controls input, .project-controls select, .project-controls textarea,
+.project-controls button { width: 100%; box-sizing: border-box; padding: 6px;
+  color: var(--text-main); background: var(--bg-capsule); border: 1px solid var(--border-color); border-radius: 4px; }
+.project-controls textarea { min-height: 58px; font-family: monospace; }
+.project-controls p { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+#projectDiagnostics { color: #e7b96f; }
+.mirror-iframe[hidden] { display: none; }

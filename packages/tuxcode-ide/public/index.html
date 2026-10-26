@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>TuxCode - Xcode for Linux</title>
-  <link rel="stylesheet" href="/css/xcode.css?v=isim-3">
+  <link rel="stylesheet" href="/css/xcode.css?v=projects-1">
 </head>
 <body>
 
@@ -30,7 +30,7 @@
 
     <!-- Scheme Picker -->
     <div class="scheme-selector" id="schemePicker">
-      <span class="scheme-target">RNWixApp</span>
+      <span class="scheme-target" id="projectName">No project</span>
       <span class="scheme-arrow">&gt;</span>
       <select class="scheme-device" id="devicePicker" aria-label="Device destination">
         <option value="usb">Physical iPhone (USB)</option>
@@ -41,10 +41,10 @@
 
     <!-- Activity Capsule -->
     <div class="activity-capsule">
-      <span class="capsule-text" id="statusText">RNWixApp : Ready</span>
+      <span class="capsule-text" id="statusText">Open a workspace to begin</span>
       <div class="capsule-badge">
         <span class="pulse-dot"></span>
-        <span id="connBadge">USB Connected &bull; 43 FPS</span>
+        <span id="connBadge">USB Mirror</span>
       </div>
     </div>
 
@@ -60,13 +60,25 @@
     <!-- Project Navigator Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">Project Navigator</div>
-      <div class="file-tree" id="fileTree">
-        <div class="tree-item active" data-file="AppDelegate.mm"><span class="tree-icon">📄</span> AppDelegate.mm</div>
-        <div class="tree-item" data-file="AppDelegate.h"><span class="tree-icon">📄</span> AppDelegate.h</div>
-        <div class="tree-item" data-file="main.m"><span class="tree-icon">📄</span> main.m</div>
-        <div class="tree-item" data-file="Info.plist"><span class="tree-icon">⚙️</span> Info.plist</div>
-        <div class="tree-item" data-file="Podfile"><span class="tree-icon">📦</span> Podfile</div>
+      <div class="project-controls">
+        <label>Project or ios directory<input id="projectPath" placeholder="/home/you/Projects/App/ios"></label>
+        <button id="openProject">Open project</button>
+        <button id="sampleProject">Open downloaded Wix sample</button>
+        <label>Workspace / project<select id="workspacePicker"></select></label>
+        <label>Scheme<select id="schemePickerInput"></select></label>
+        <label>Configuration<select id="configurationPicker"></select></label>
+        <details>
+          <summary>Environment and build settings</summary>
+          <p>JSON objects. Values stay in this session. Build scripts may read .xcode.env; .env files are not loaded automatically.</p>
+          <label>Build environment<textarea id="buildEnvironment">{}</textarea></label>
+          <label>Launch environment overrides<textarea id="launchEnvironment">{}</textarea></label>
+          <label>Build setting overrides<textarea id="buildSettings">{}</textarea></label>
+          <label>Launch arguments (JSON array; blank uses scheme)<textarea id="launchArguments" placeholder="Use scheme arguments"></textarea></label>
+        </details>
+        <button id="inspectPlan">Inspect build plan</button>
+        <p id="projectDiagnostics" role="status"></p>
       </div>
+      <div class="file-tree" id="fileTree"></div>
     </aside>
 
     <!-- Center Code Editor -->
@@ -82,9 +94,8 @@
           <span>Build & Device Output</span>
           <button style="background:transparent; border:none; color:#888; cursor:pointer;" id="clearConsole">Clear</button>
         </div>
-        <div class="console-body" id="consoleLog">Welcome to TuxCode IDE v0.1.0
-Connected to Physical iPhone over USB.
-Ready to build and test.</div>
+        <div class="console-body" id="consoleLog">Open a workspace, choose a scheme and configuration, then inspect its build plan.
+Building executes project scripts. Only build projects you trust.</div>
       </div>
     </section>
 
@@ -93,13 +104,13 @@ Ready to build and test.</div>
       <div id="isimPanel" hidden>
         <p>isim opens in a desktop window on the IDE host.</p>
         <button class="tool-btn" id="openIsim">Open isim</button>
-        <p>Project build and deployment to isim are not connected yet.</p>
+        <p>Select a workspace and scheme to build with isim. Native dependency compatibility varies.</p>
       </div>
       <iframe class="mirror-iframe" id="mirrorIframe" src=""></iframe>
     </aside>
 
   </main>
 
-  <script src="/js/app.js?v=isim-3"></script>
+  <script src="/js/app.js?v=projects-1"></script>
 </body>
 </html>

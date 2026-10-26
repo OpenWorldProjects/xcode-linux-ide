@@ -1,181 +1,78 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
+const projects = require('../../tuxcodebuild/src/project-service');
+const ROOT = path.resolve(__dirname, '../../..');
+const PUBLIC = path.join(__dirname, '../public');
+const PORT = Number(process.env.TUXCODE_PORT || 3000);
 
-const PORT = 3000;
-const ROOT_DIR = path.resolve(__dirname, '../../..');
-const TUXCODEBUILD_BIN = path.join(ROOT_DIR, 'bin/tuxcodebuild');
-const DEFAULT_PROJECT = path.join(ROOT_DIR, 'test-projects/rn-wix-sample/ios');
-const PUBLIC_DIR = path.join(__dirname, '../public');
-
-// Simple static file server
-function serveStatic(req, res) {
-  let reqPath = req.url.split('?')[0];
-  if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
-  const filePath = path.join(PUBLIC_DIR, reqPath);
-
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-    const ext = path.extname(filePath);
-    const mimeTypes = {
-      '.html': 'text/html',
-      '.css': 'text/css',
-      '.js': 'application/javascript',
-      '.json': 'application/json',
-      '.svg': 'image/svg+xml',
-      '.png': 'image/png'
-    };
-    res.writeHead(200, {
-      'Content-Type': mimeTypes[ext] || 'text/plain',
-      'Cache-Control': 'no-store'
-    });
-    fs.createReadStream(filePath).pipe(res);
-    return true;
-  }
-  return false;
+function json(res, status, value) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(value));
 }
-
-const server = http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
+async function body(req) {
+  let text = '';
+  for await (const chunk of req) {
+    text += chunk;
+    if (text.length > 1024 * 1024) throw new Error('Request is too large');
   }
-
-  // isim is a desktop application, not an HTTP mirror service.
-  if (req.url === '/api/isim/open' && req.method === 'POST') {
-    const child = spawn(path.join(ROOT_DIR, 'bin/isim'), ['open'], {
-      cwd: ROOT_DIR,
-      detached: true,
-      stdio: 'ignore'
-    });
-    child.once('error', err => {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: `Unable to start isim: ${err.message}` }));
-    });
-    child.once('spawn', () => {
-      child.unref();
-      res.writeHead(202, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: 'Launch requested. Look for the isim window on the IDE host desktop.' }));
-    });
-    return;
-  }
-
-  // API Endpoints
-  if (req.url === '/api/devices') {
-    try {
-      const output = execSync(`"${TUXCODEBUILD_BIN}" devices`, { encoding: 'utf-8' });
-      const devices = [];
-      for (const line of output.trim().split('\n')) {
-        if (line.includes('[Device]')) {
-          const parts = line.replace('[Device]', '').split('- UDID:');
-          devices.push({
-            name: parts[0].trim(),
-            udid: parts[1] ? parts[1].trim() : 'Unknown'
-          });
-        }
+  return JSON.parse(text || '{}');
+}
+function filesUnder(root, depth = 0) {
+  if (depth > 5) return [];
+  return fs.readdirSync(root, { withFileTypes: true }).filter(f => !f.isSymbolicLink() && !['.git', 'Pods', 'node_modules', 'build', '.env', '.env.local'].includes(f.name)).flatMap(f => {
+    const file = path.join(root, f.name);
+    return f.isDirectory() ? filesUnder(file, depth + 1) : [{ name: f.name, path: file }];
+  }).slice(0, 1000);
+}
+const server = http.createServer(async (req, res) => {
+  try {
+    // Local IDE: reject cross-origin writes and DNS-rebinding hostnames.
+    const host = req.headers.host || '';
+    if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return json(res, 403, { error: 'Use localhost to access this IDE.' });
+    if (req.headers.origin && req.headers.origin !== `http://${host}`) return json(res, 403, { error: 'Cross-origin requests are not allowed.' });
+    const url = new URL(req.url, `http://${host}`);
+    if (req.method === 'POST') {
+      if (!req.headers['content-type']?.startsWith('application/json')) return json(res, 415, { error: 'Expected application/json' });
+      const data = await body(req);
+      if (url.pathname === '/api/project') return json(res, 200, await projects.inspect(data));
+      if (url.pathname === '/api/plan') return json(res, 200, await projects.inspect({ ...data, action: 'plan' }));
+      if (['/api/build', '/api/run'].includes(url.pathname)) {
+        const result = await projects[url.pathname.slice(5)](data);
+        // Do not echo build/launch environment values back into build logs.
+        return json(res, 200, { success: true, output: result.output });
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(devices));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return;
-  }
-
-  if (req.url === '/api/build' && req.method === 'POST') {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      const data = JSON.parse(body || '{}');
-      const projectPath = data.projectPath ? path.resolve(ROOT_DIR, data.projectPath) : DEFAULT_PROJECT;
-      console.log(`[tuxcode-ide] Building ${projectPath}...`);
-      try {
-        const output = execSync(`"${TUXCODEBUILD_BIN}" build "${projectPath}"`, { encoding: 'utf-8' });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, output }));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, output: err.stdout || err.stderr || err.message }));
+      if (url.pathname === '/api/isim/open') {
+        const child = spawn(path.join(ROOT, 'bin/isim'), ['open'], { cwd: ROOT, detached: true, stdio: 'ignore' });
+        child.once('error', error => json(res, 500, { error: error.message }));
+        child.once('spawn', () => { child.unref(); json(res, 202, { message: 'Launch requested. Check the isim desktop window.' }); });
+        return;
       }
-    });
-    return;
-  }
-
-  if (req.url === '/api/run' && req.method === 'POST') {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      const data = JSON.parse(body || '{}');
-      const projectPath = data.projectPath ? path.resolve(ROOT_DIR, data.projectPath) : DEFAULT_PROJECT;
-      console.log(`[tuxcode-ide] Running ${projectPath}...`);
-      try {
-        const output = execSync(`"${TUXCODEBUILD_BIN}" run "${projectPath}"`, { encoding: 'utf-8' });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, output }));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, output: err.stdout || err.stderr || err.message }));
+      if (url.pathname === '/api/files') {
+        const container = path.resolve(ROOT, data.projectPath);
+        const root = /\.(xcworkspace|xcodeproj)$/.test(container) ? path.dirname(container) : container;
+        return json(res, 200, filesUnder(root));
       }
-    });
-    return;
-  }
-
-  if (req.url.startsWith('/api/files')) {
-    function getFileTree(dir) {
-      const items = [];
-      const files = fs.readdirSync(dir);
-      for (const f of files) {
-        if (f === 'build' || f === '.git') continue;
-        const full = path.join(dir, f);
-        const isDir = fs.statSync(full).isDirectory();
-        items.push({
-          name: f,
-          path: full,
-          isDirectory: isDir,
-          children: isDir ? getFileTree(full) : []
-        });
+      if (url.pathname === '/api/file-content') {
+        const container = fs.realpathSync(path.resolve(ROOT, data.projectPath));
+        const root = /\.(xcworkspace|xcodeproj)$/.test(container) ? path.dirname(container) : container;
+        const file = fs.realpathSync(data.filePath);
+        if (!file.startsWith(root + path.sep) || !fs.statSync(file).isFile()) throw new Error('File is outside the selected project');
+        if (fs.statSync(file).size > 1024 * 1024) throw new Error('File is too large for the editor');
+        return json(res, 200, { content: fs.readFileSync(file, 'utf8') });
       }
-      return items;
+      return json(res, 404, { error: 'Unknown endpoint' });
     }
-
-    try {
-      const tree = getFileTree(DEFAULT_PROJECT);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(tree));
-    } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-    }
-    return;
+    if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
+    const file = path.resolve(PUBLIC, '.' + (url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname)));
+    if (!file.startsWith(PUBLIC + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return json(res, 404, { error: 'Not found' });
+    const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+    res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+    fs.createReadStream(file).pipe(res);
+  } catch (error) {
+    json(res, 400, { success: false, error: error.message, output: error.message });
   }
-
-  if (req.url.startsWith('/api/file-content')) {
-    const urlParams = new URLSearchParams(req.url.split('?')[1]);
-    const requestedPath = urlParams.get('path');
-    const filePath = requestedPath ? path.resolve(ROOT_DIR, requestedPath) : null;
-    if (filePath && fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end(content);
-      return;
-    }
-    res.writeHead(404);
-    res.end();
-    return;
-  }
-
-  // Fallback to static assets
-  if (serveStatic(req, res)) return;
-
-  res.writeHead(404);
-  res.end('Not Found');
 });
-
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[tuxcode-ide] 🐧 TuxCode IDE running on http://127.0.0.1:${PORT}`);
-});
+if (require.main === module) server.listen(PORT, '127.0.0.1', () => console.log(`TuxCode: http://localhost:${PORT}`));
+module.exports = server;
