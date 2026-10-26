@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# tuxsim - Real Apple iOS Simulator Launcher (macOS KVM + noVNC Web Viewer)
+# ==============================================================================
+set -e
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+KVM_DIR="${ROOT_DIR}/kvm/OSX-KVM"
+
+echo "🍎 Launching Real Apple iOS Simulator Suite..."
+
+# 1. Check KVM directory and disk images
+if [ ! -d "${KVM_DIR}" ]; then
+  echo "⚠️ Initializing KVM files..."
+  "${ROOT_DIR}/scripts/setup-macos-simulator.sh"
+fi
+
+if [ ! -f "${KVM_DIR}/BaseSystem.img" ] || [ ! -f "${KVM_DIR}/mac_hdd_ng.img" ]; then
+  echo "⚠️ Preparing BaseSystem and virtual disk..."
+  "${ROOT_DIR}/scripts/setup-macos-simulator.sh"
+fi
+
+cd "${KVM_DIR}"
+
+# 2. Check if already running
+if pgrep -f "qemu-system-x86_64.*OpenCore" >/dev/null; then
+  echo "ℹ️ macOS KVM is already running."
+else
+  echo "🚀 Starting macOS KVM (8GB RAM, 4 vCPUs, KVM Hardware Acceleration)..."
+  
+  MY_OPTIONS="+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check"
+  
+  nohup qemu-system-x86_64 \
+    -enable-kvm -m 8192 \
+    -cpu Skylake-Client,-hle,-rtm,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,${MY_OPTIONS} \
+    -machine q35 \
+    -device qemu-xhci,id=xhci \
+    -device usb-kbd,bus=xhci.0 -device usb-tablet,bus=xhci.0 \
+    -smp 4,cores=2,sockets=1 \
+    -device isa-applesmc,osk="ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc" \
+    -drive if=pflash,format=raw,readonly=on,file="./OVMF_CODE_4M.fd" \
+    -drive if=pflash,format=raw,file="./OVMF_VARS-1920x1080.fd" \
+    -smbios type=2 \
+    -device ich9-ahci,id=sata \
+    -drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file="./OpenCore/OpenCore.qcow2" \
+    -device ide-hd,bus=sata.2,drive=OpenCoreBoot \
+    -device ide-hd,bus=sata.3,drive=InstallMedia \
+    -drive id=InstallMedia,if=none,file="./BaseSystem.img",format=raw \
+    -drive id=MacHDD,if=none,file="./mac_hdd_ng.img",format=qcow2 \
+    -device ide-hd,bus=sata.4,drive=MacHDD \
+    -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27 \
+    -device vmware-svga \
+    -vnc 0.0.0.0:0 \
+    -display none > /dev/null 2>&1 &
+fi
+
+# 3. Start noVNC Web Proxy on Port 6080
+if ! pgrep -f "websockify.*6080" >/dev/null; then
+  echo "🌐 Starting noVNC HTML5 Web Display on Port 6080..."
+  if [ -x "/snap/bin/novnc" ]; then
+    nohup /snap/bin/novnc --listen 6080 --vnc localhost:5900 > /dev/null 2>&1 &
+  fi
+fi
+
+sleep 2
+
+echo ""
+echo "=============================================================================="
+echo "🎉 Real Apple iOS Simulator Environment Active!"
+echo "=============================================================================="
+echo "🖥️  Web Display (HTML5):   http://localhost:6080/vnc.html?autoconnect=true"
+echo "🪟  WSL2 Remote Access:    http://<WSL-IP>:6080/vnc.html?autoconnect=true"
+echo "🔌  VNC Direct Port:       localhost:5900 (RealVNC / TigerVNC)"
+echo "🔑  SSH Port (Guest):      localhost:2222"
+echo "📱  TuxCode IDE:           http://localhost:3000"
+echo "=============================================================================="

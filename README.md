@@ -40,6 +40,7 @@ TuxCode is an open-source development suite that enables building, running, debu
 | :--- | :--- | :--- |
 | **`setup.sh`** | `./setup.sh` | Turnkey 1-command installer for Linux & WSL2 |
 | **`tuxcode`** | `bin/tuxcode` | Standalone Xcode clone IDE (Port 3000, 0.0.0.0 WSL friendly) |
+| **`tuxsim`** | `bin/tuxsim` | Real Apple iOS Simulator Suite (macOS KVM + noVNC Web Display) |
 | **`tuxmirror`** | `bin/tuxmirror` | High-speed direct USB screen mirror & touch server (Port 8080) |
 | **`tuxcodebuild`** | `bin/tuxcodebuild` | CLI compiler replacing `xcodebuild` |
 | **VS Code VSIX** | `vscode-tuxcode-0.1.0.vsix` | Ready-to-install VS Code extension package |
