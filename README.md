@@ -106,7 +106,7 @@ Inside your WSL terminal:
 ```bash
 tuxcodebuild doctor
 ```
-Your iPhone (e.g. `Dino's iPhone (iPhone17,2)`) will be recognized immediately over USB!
+Your iPhone (e.g. `Connected iPhone (iPhone17,2)`) will be recognized immediately over USB!
 
 ---
 
@@ -121,7 +121,7 @@ TuxCode includes a packaged extension: **`vscode-tuxcode-0.1.0.vsix`**.
 
 ### Features
 - **Activity Bar View**: Browse connected iOS devices and trigger 1-click actions.
-- **Status Bar**: Real-time connected device and USB status (`📱 Dino's iPhone`).
+- **Status Bar**: Real-time connected device and USB status (`📱 Connected iPhone`).
 - **Command Palette (`Ctrl+Shift+P`)**:
   - `TuxCode: Build iOS Project`
   - `TuxCode: Run on Connected iPhone`

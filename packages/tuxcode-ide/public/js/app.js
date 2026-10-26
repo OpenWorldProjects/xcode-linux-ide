@@ -71,7 +71,7 @@ btnBuild.addEventListener('click', async () => {
 // Run Action
 btnRun.addEventListener('click', async () => {
   statusText.textContent = 'RNWixApp : Deploying to iPhone over USB...';
-  log('[TuxCode] Deploying to Dino\'s iPhone...');
+  log('[TuxCode] Deploying to iPhone over USB...');
   try {
     const res = await fetch('/api/run', {
       method: 'POST',
@@ -81,7 +81,7 @@ btnRun.addEventListener('click', async () => {
     const data = await res.json();
     log(data.output);
     if (data.success) {
-      statusText.textContent = 'RNWixApp : Running on Dino\'s iPhone';
+      statusText.textContent = 'RNWixApp : Running on iPhone';
     } else {
       statusText.textContent = 'RNWixApp : Deploy Finished';
     }
@@ -138,7 +138,7 @@ function updateTargetView() {
       mirrorIframe.src = `http://${host}:6080/vnc.html?autoconnect=true`;
     }
   } else {
-    deviceLabel.textContent = 'Dino’s iPhone (iPhone 16 Pro)';
+    deviceLabel.textContent = 'Physical iPhone (USB)';
     connBadge.textContent = 'USB Connected • 43 FPS';
     if (mirrorIframe) {
       mirrorIframe.src = `http://${host}:8080`;
