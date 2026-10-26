@@ -74,7 +74,7 @@ function activate(context) {
 
     mirrorWebviewPanel = vscode.window.createWebviewPanel(
       'tuxcodeMirror',
-      '📱 iPhone 16 Pro Live View',
+      '📱 iOS Device Live View',
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
