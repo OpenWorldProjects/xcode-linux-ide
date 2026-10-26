@@ -52,7 +52,7 @@ if ! command -v isim >/dev/null 2>&1 && [ ! -f "${HOME}/.local/bin/isim" ]; then
   curl -fsSL https://raw.githubusercontent.com/kolabs-dev/isim/main/install.sh | bash || true
 fi
 if [ -f "${HOME}/.local/bin/isim" ]; then
-  ln -sf "${HOME}/.local/bin/isim" "${ROOT_DIR}/bin/isim"
+  # bin/isim resolves the current user installation at runtime.
   echo "✅ isim linked to ${ROOT_DIR}/bin/isim"
 fi
 

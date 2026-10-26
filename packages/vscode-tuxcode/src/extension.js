@@ -1,23 +1,36 @@
 const vscode = require('vscode');
 const path = require('path');
-const { execSync, spawn } = require('child_process');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const runFile = promisify(execFile);
 
-const PROJECT_ROOT = path.resolve(__dirname, '../../../');
-const TUXCODEBUILD_BIN = path.join(PROJECT_ROOT, 'bin/tuxcodebuild');
-const TUXMIRROR_BIN = path.join(PROJECT_ROOT, 'bin/tuxmirror');
+function buildTool() {
+  const root = vscode.workspace.getConfiguration('tuxcode').get('toolchainRoot');
+  return root ? path.join(root, 'bin/tuxcodebuild') : 'tuxcodebuild';
+}
+
+async function runBuildTool(args) {
+  const { stdout } = await runFile(buildTool(), args, { timeout: args[0] === 'devices' ? 8000 : 300000, maxBuffer: 16 * 1024 * 1024 });
+  return stdout;
+}
 
 let statusBarItem;
 let mirrorWebviewPanel = null;
 
 function activate(context) {
-  console.log('[TuxCode] Extension activated.');
+  if (!vscode.workspace.isTrusted) return;
+  if (process.platform === 'win32') {
+    vscode.window.showWarningMessage('TuxCode: Reopen this folder in WSL using the WSL extension.');
+    return;
+  }
 
   // Create Output Channel for Build & Logs
   const outputChannel = vscode.window.createOutputChannel('TuxCode iOS');
+  context.subscriptions.push(outputChannel);
 
   // Status Bar Item
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  statusBarItem.command = 'tuxcode.devices';
+  statusBarItem.command = 'workbench.view.extension.tuxcode-explorer';
   context.subscriptions.push(statusBarItem);
   updateStatusBar();
 
@@ -36,7 +49,7 @@ function activate(context) {
 
     try {
       vscode.window.showInformationMessage('TuxCode: Compiling iOS project with Clang & Ninja...');
-      const output = execSync(`"${TUXCODEBUILD_BIN}" build "${iosDir}"`, { encoding: 'utf-8' });
+      const output = await runBuildTool(['build', iosDir]);
       outputChannel.append(output);
       vscode.window.showInformationMessage('TuxCode: ✅ iOS Build Succeeded!');
     } catch (err) {
@@ -56,7 +69,7 @@ function activate(context) {
 
     try {
       vscode.window.showInformationMessage('TuxCode: Building and deploying to iPhone...');
-      const output = execSync(`"${TUXCODEBUILD_BIN}" run "${iosDir}"`, { encoding: 'utf-8' });
+      const output = await runBuildTool(['run', iosDir]);
       outputChannel.append(output);
       vscode.window.showInformationMessage('TuxCode: ✅ App installed and launched on device!');
     } catch (err) {
@@ -66,7 +79,7 @@ function activate(context) {
   });
 
   // 3. Mirror Webview Command (Opens phone screen in a VS Code tab!)
-  const mirrorCmd = vscode.commands.registerCommand('tuxcode.mirror', () => {
+  const mirrorCmd = vscode.commands.registerCommand('tuxcode.mirror', async () => {
     if (mirrorWebviewPanel) {
       mirrorWebviewPanel.reveal(vscode.ViewColumn.Beside);
       return;
@@ -82,7 +95,12 @@ function activate(context) {
       }
     );
 
-    mirrorWebviewPanel.webview.html = getMirrorWebviewContent();
+    try {
+      const uri = await vscode.env.asExternalUri(vscode.Uri.parse('http://127.0.0.1:8080'));
+      if (mirrorWebviewPanel) mirrorWebviewPanel.webview.html = getMirrorWebviewContent(uri.toString());
+    } catch (err) {
+      vscode.window.showErrorMessage(`TuxCode mirror forwarding failed: ${err.message}`);
+    }
 
     mirrorWebviewPanel.onDidDispose(() => {
       mirrorWebviewPanel = null;
@@ -90,10 +108,10 @@ function activate(context) {
   });
 
   // 4. Doctor Command
-  const doctorCmd = vscode.commands.registerCommand('tuxcode.doctor', () => {
+  const doctorCmd = vscode.commands.registerCommand('tuxcode.doctor', async () => {
     outputChannel.show(true);
     try {
-      const output = execSync(`"${TUXCODEBUILD_BIN}" doctor`, { encoding: 'utf-8' });
+      const output = await runBuildTool(['doctor']);
       outputChannel.append(output);
     } catch (err) {
       outputChannel.append(err.stdout || err.message);
@@ -108,9 +126,9 @@ function activate(context) {
   vscode.window.registerTreeDataProvider('tuxcode.actions', new ActionsTreeDataProvider());
 }
 
-function updateStatusBar() {
+async function updateStatusBar() {
   try {
-    const raw = execSync(`"${TUXCODEBUILD_BIN}" devices`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const raw = await runBuildTool(['devices']);
     if (raw.includes('[Device]')) {
       const line = raw.split('\n').find(l => l.includes('[Device]'));
       const devName = line.replace('[Device]', '').split('- UDID')[0].trim();
@@ -129,9 +147,9 @@ function updateStatusBar() {
 
 class DevicesTreeDataProvider {
   getTreeItem(element) { return element; }
-  getChildren() {
+  async getChildren() {
     try {
-      const raw = execSync(`"${TUXCODEBUILD_BIN}" devices`, { encoding: 'utf-8' });
+      const raw = await runBuildTool(['devices']);
       const items = [];
       const lines = raw.trim().split('\n').filter(l => l.includes('[Device]'));
       for (const line of lines) {
@@ -166,17 +184,20 @@ class ActionsTreeDataProvider {
   }
 }
 
-function getMirrorWebviewContent() {
+function getMirrorWebviewContent(url) {
+  const escaped = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const origin = new URL(url).origin;
   return `<!DOCTYPE html>
   <html>
   <head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${origin}; style-src 'unsafe-inline';">
     <style>
       body { margin: 0; padding: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
       iframe { width: 100%; height: 100%; border: none; }
     </style>
   </head>
   <body>
-    <iframe src="http://127.0.0.1:8080"></iframe>
+    <iframe src="${escaped}"></iframe>
   </body>
   </html>`;
 }

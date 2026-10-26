@@ -10,7 +10,7 @@ const toggleConsole = document.getElementById('toggleConsole');
 const consolePanel = document.getElementById('consolePanel');
 const fileItems = document.querySelectorAll('.tree-item');
 
-const DEFAULT_IOS_DIR = '/home/ella/Projects/xcode-linux-ide/test-projects/rn-wix-sample/ios';
+const DEFAULT_IOS_DIR = 'test-projects/rn-wix-sample/ios';
 
 // File mapping
 const files = {
@@ -121,41 +121,50 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Target Switching: Real iPhone 16 Pro (USB Mirror) <-> Real Apple iOS Simulator (macOS KVM)
-const deviceLabel = document.getElementById('deviceLabel');
-const schemePicker = document.getElementById('schemePicker');
+// Device destinations, in toolbar order: USB, Apple Simulator, isim.
+const devicePicker = document.getElementById('devicePicker');
 const connBadge = document.getElementById('connBadge');
 const mirrorIframe = document.getElementById('mirrorIframe');
-
-let isSimulatorMode = false;
+const isimPanel = document.getElementById('isimPanel');
+const openIsim = document.getElementById('openIsim');
 
 function updateTargetView() {
   const host = window.location.hostname || '127.0.0.1';
-  if (isSimulatorMode) {
-    deviceLabel.textContent = 'Apple iOS Simulator (macOS KVM)';
-    connBadge.textContent = 'KVM Active • Port 6080';
-    if (mirrorIframe) {
-      mirrorIframe.src = `http://${host}:6080/vnc.html?autoconnect=true`;
-    }
+  const target = devicePicker.value;
+  const isIsim = target === 'isim';
+  isimPanel.hidden = !isIsim;
+  mirrorIframe.hidden = isIsim;
+  // Do not accidentally build/deploy the physical-device target when isim is selected.
+  btnBuild.disabled = isIsim;
+  btnRun.disabled = isIsim;
+  btnBuild.title = isIsim ? 'Project builds for isim are not connected yet' : 'Build Project (Ctrl+B)';
+  btnRun.title = isIsim ? 'Use Open isim to launch the simulator' : 'Build & Run on Device (Ctrl+R)';
+  if (isIsim) {
+    mirrorIframe.src = 'about:blank';
+    connBadge.textContent = 'isim • Desktop window';
+  } else if (target === 'apple') {
+    connBadge.textContent = 'Apple Simulator • Port 6080';
+    mirrorIframe.src = `http://${host}:6080/vnc.html?autoconnect=true`;
   } else {
-    deviceLabel.textContent = 'Physical iPhone (USB)';
-    connBadge.textContent = 'USB Connected • 43 FPS';
-    if (mirrorIframe) {
-      mirrorIframe.src = `http://${host}:8080`;
-    }
+    connBadge.textContent = 'USB Mirror • Port 8080';
+    mirrorIframe.src = `http://${host}:8080`;
   }
 }
 
-if (schemePicker) {
-  schemePicker.style.cursor = 'pointer';
-  schemePicker.title = 'Click to switch between Physical iPhone and Apple iOS Simulator';
-  schemePicker.addEventListener('click', () => {
-    isSimulatorMode = !isSimulatorMode;
-    updateTargetView();
-  });
-}
-
-// Initial target setup
+devicePicker.addEventListener('change', updateTargetView);
+openIsim.addEventListener('click', async () => {
+  openIsim.disabled = true;
+  try {
+    const res = await fetch('/api/isim/open', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to launch isim');
+    log('[isim] ' + data.message);
+  } catch (err) {
+    log('[isim] ' + err.message);
+  } finally {
+    openIsim.disabled = false;
+  }
+});
 updateTargetView();
 
 // Initial load

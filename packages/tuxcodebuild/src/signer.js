@@ -1,6 +1,7 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const BIN_DIR = path.resolve(__dirname, '../../../bin');
 const RCODESIGN_BIN = path.join(BIN_DIR, 'rcodesign');
@@ -19,9 +20,8 @@ class AppSigner {
     }
 
     console.log(`[tuxcodebuild] Performing ad-hoc code sign on ${appPath}...`);
-    const cmd = `"${RCODESIGN_BIN}" sign "${appPath}"`;
     try {
-      const output = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      const output = execFileSync(RCODESIGN_BIN, ['sign', appPath], { encoding: 'utf-8' });
       console.log('[tuxcodebuild] Ad-hoc signature written.');
       console.log('\x1b[33m%s\x1b[0m', '⚠️  NOTICE: Ad-hoc signatures are only valid for Simulators or Jailbroken devices.');
       console.log('\x1b[33m%s\x1b[0m', '   Physical iPhones (iOS 17/18) require an Apple Developer Profile (.mobileprovision) + .p12 certificate.');
@@ -45,37 +45,30 @@ class AppSigner {
       throw new Error(`Provisioning profile not found: ${profilePath}`);
     }
 
-    // Embed provisioning profile into .app bundle
-    const embeddedProfileDest = path.join(appPath, 'embedded.mobileprovision');
-    fs.copyFileSync(profilePath, embeddedProfileDest);
-    console.log(`[tuxcodebuild] Embedded mobileprovision -> ${embeddedProfileDest}`);
-
-    let cmd = `"${RCODESIGN_BIN}" sign --p12-file "${p12Path}"`;
-    if (p12Password) {
-      cmd += ` --p12-password "${p12Password}"`;
+    // rcodesign 0.29 has no --provisioning-profile flag. The caller must
+    // resolve entitlements against the profile before invoking this low-level API.
+    if (!entitlementsPath || !fs.existsSync(entitlementsPath)) {
+      throw new Error('Explicit profile-compatible entitlements are required for device signing.');
     }
-    cmd += ` --provisioning-profile "${profilePath}"`;
-    if (entitlementsPath && fs.existsSync(entitlementsPath)) {
-      cmd += ` --entitlements-xml-file "${entitlementsPath}"`;
-    }
-    cmd += ` "${appPath}"`;
-
-    console.log(`[tuxcodebuild] Signing with developer profile: ${cmd}`);
+    const secretDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tuxcode-sign-'));
     try {
-      const output = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
-      console.log('[tuxcodebuild] Developer certificate signature successful!');
-      return output;
-    } catch (err) {
-      console.error('[tuxcodebuild] Developer signing failed:', err.stderr || err.message);
-      throw err;
+      const passwordFile = path.join(secretDir, 'password');
+      fs.writeFileSync(passwordFile, p12Password, { mode: 0o600 });
+      fs.copyFileSync(profilePath, path.join(appPath, 'embedded.mobileprovision'));
+      const args = ['sign', '--p12-file', p12Path,
+        '--p12-password-file', passwordFile,
+        '--entitlements-xml-file', entitlementsPath, appPath];
+      console.log('[tuxcodebuild] Signing with supplied developer credentials.');
+      return execFileSync(RCODESIGN_BIN, args, { encoding: 'utf-8' });
+    } finally {
+      fs.rmSync(secretDir, { recursive: true, force: true });
     }
   }
 
   static verifySignature(appPath) {
     this.checkBinary();
-    const cmd = `"${RCODESIGN_BIN}" verify "${appPath}"`;
     try {
-      const output = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      const output = execFileSync(RCODESIGN_BIN, ['verify', appPath], { encoding: 'utf-8' });
       return { valid: true, output };
     } catch (err) {
       return { valid: false, error: err.stderr || err.message };

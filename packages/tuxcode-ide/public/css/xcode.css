@@ -267,3 +267,15 @@ body {
   overflow-y: auto;
   white-space: pre-wrap;
 }
+
+select.scheme-device {
+  background: var(--bg-capsule);
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  max-width: 280px;
+}
+select.scheme-device:focus-visible { outline: 2px solid var(--accent-blue); }
+#isimPanel { padding: 20px; color: var(--text-muted); }
+#openIsim { width: auto; padding: 8px 12px; }
+.tool-btn:disabled { opacity: 0.45; cursor: not-allowed; }

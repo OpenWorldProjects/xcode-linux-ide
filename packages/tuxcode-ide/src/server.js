@@ -25,7 +25,10 @@ function serveStatic(req, res) {
       '.svg': 'image/svg+xml',
       '.png': 'image/png'
     };
-    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
+    res.writeHead(200, {
+      'Content-Type': mimeTypes[ext] || 'text/plain',
+      'Cache-Control': 'no-store'
+    });
     fs.createReadStream(filePath).pipe(res);
     return true;
   }
@@ -39,6 +42,25 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
     res.end();
+    return;
+  }
+
+  // isim is a desktop application, not an HTTP mirror service.
+  if (req.url === '/api/isim/open' && req.method === 'POST') {
+    const child = spawn(path.join(ROOT_DIR, 'bin/isim'), ['open'], {
+      cwd: ROOT_DIR,
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.once('error', err => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Unable to start isim: ${err.message}` }));
+    });
+    child.once('spawn', () => {
+      child.unref();
+      res.writeHead(202, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Launch requested. Look for the isim window on the IDE host desktop.' }));
+    });
     return;
   }
 
@@ -70,7 +92,7 @@ const server = http.createServer((req, res) => {
     req.on('data', c => body += c);
     req.on('end', () => {
       const data = JSON.parse(body || '{}');
-      const projectPath = data.projectPath || DEFAULT_PROJECT;
+      const projectPath = data.projectPath ? path.resolve(ROOT_DIR, data.projectPath) : DEFAULT_PROJECT;
       console.log(`[tuxcode-ide] Building ${projectPath}...`);
       try {
         const output = execSync(`"${TUXCODEBUILD_BIN}" build "${projectPath}"`, { encoding: 'utf-8' });
@@ -89,7 +111,7 @@ const server = http.createServer((req, res) => {
     req.on('data', c => body += c);
     req.on('end', () => {
       const data = JSON.parse(body || '{}');
-      const projectPath = data.projectPath || DEFAULT_PROJECT;
+      const projectPath = data.projectPath ? path.resolve(ROOT_DIR, data.projectPath) : DEFAULT_PROJECT;
       console.log(`[tuxcode-ide] Running ${projectPath}...`);
       try {
         const output = execSync(`"${TUXCODEBUILD_BIN}" run "${projectPath}"`, { encoding: 'utf-8' });
@@ -134,7 +156,8 @@ const server = http.createServer((req, res) => {
 
   if (req.url.startsWith('/api/file-content')) {
     const urlParams = new URLSearchParams(req.url.split('?')[1]);
-    const filePath = urlParams.get('path');
+    const requestedPath = urlParams.get('path');
+    const filePath = requestedPath ? path.resolve(ROOT_DIR, requestedPath) : null;
     if (filePath && fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
       res.writeHead(200, { 'Content-Type': 'text/plain' });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>TuxCode - Xcode for Linux</title>
-  <link rel="stylesheet" href="/css/xcode.css">
+  <link rel="stylesheet" href="/css/xcode.css?v=isim-3">
 </head>
 <body>
 
@@ -32,8 +32,11 @@
     <div class="scheme-selector" id="schemePicker">
       <span class="scheme-target">RNWixApp</span>
       <span class="scheme-arrow">&gt;</span>
-      <span class="scheme-device" id="deviceLabel">Physical iPhone (USB)</span>
-      <span style="font-size: 10px; margin-left: 4px;">▾</span>
+      <select class="scheme-device" id="devicePicker" aria-label="Device destination">
+        <option value="usb">Physical iPhone (USB)</option>
+        <option value="apple">Apple iOS Simulator (macOS KVM)</option>
+        <option value="isim">isim (Linux Simulator)</option>
+      </select>
     </div>
 
     <!-- Activity Capsule -->
@@ -87,11 +90,16 @@ Ready to build and test.</div>
 
     <!-- Right Integrated Live Device Mirror Panel -->
     <aside class="mirror-panel" id="mirrorPanel">
+      <div id="isimPanel" hidden>
+        <p>isim opens in a desktop window on the IDE host.</p>
+        <button class="tool-btn" id="openIsim">Open isim</button>
+        <p>Project build and deployment to isim are not connected yet.</p>
+      </div>
       <iframe class="mirror-iframe" id="mirrorIframe" src=""></iframe>
     </aside>
 
   </main>
 
-  <script src="/js/app.js"></script>
+  <script src="/js/app.js?v=isim-3"></script>
 </body>
 </html>

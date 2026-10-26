@@ -1,182 +1,159 @@
-# 🐧 TuxCode & tuxcodebuild
+# TuxCode
 
-**Universal Linux & WSL2 Xcode Alternative Suite for Native iOS & React Native Development**
+Linux and Windows 11/WSL2 tools for iOS development, with a browser IDE,
+physical-device tooling, and the native Linux **isim** compatibility simulator.
 
-TuxCode is an open-source development suite that enables building, running, debugging, and screen-mirroring native iOS and React Native applications directly on Linux and Windows 11 (WSL2) without macOS hardware.
+## Windows work machine: simplest setup
 
----
+Use **Windows 11, x86_64, Ubuntu 24.04 under WSL2**. The simulator opens through
+WSLg as a desktop window. No macOS VM, Apple account, USB phone, or VS Code
+extension is needed to try isim.
 
-## Architecture Overview
+**1. One time, in Windows PowerShell as administrator:**
 
-```
-                                      [ TuxCode Suite ]
-                                             │
-      ┌──────────────────────────────────────┼──────────────────────────────────────┐
-      │                                      │                                      │
-      ▼                                      ▼                                      ▼
-[ Standalone IDE ]                 [ VS Code Extension ]                 [ CLI Toolchain ]
-  tuxcode (Port 3000)                vscode-tuxcode                        tuxcodebuild
-  - Xcode 16 Dark UI                 - Activity Bar Tree                   - Workspace Parser
-  - Scheme & Device Selector         - Status Bar Device Info              - Ninja Generator
-  - Integrated USB Mirror            - In-Editor Live Mirror Tab           - Clang 21 + ld64.lld
-  - Real-time Console                - 1-Click Build & Run                 - rcodesign Code Signer
-  - 0.0.0.0 WSL Remote Access        - Packaged VSIX                       - CocoaPods Shims
-             │                                      │                                      │
-             └──────────────────────────────────────┴──────────────────────────────────────┘
-                                                    │
-                         ┌──────────────────────────┴──────────────────────────┐
-                         ▼                                                     ▼
-              [ Physical iPhone Device ]                              [ Linux iOS Simulator ]
-              - Direct USB Cable Connection (43+ FPS)                 - isim (SpringBoard & UIKit)
-              - Windows 11 WSL2 usbipd Passthrough                    - Zero Code Signing Needed
-              - go-ios Automation & Lockdown                          - Keyboard & Mouse Touch
+```powershell
+wsl --install -d Ubuntu-24.04
+wsl --update
 ```
 
----
+Restart Windows if requested. Open **Ubuntu 24.04** from Start and finish creating
+your Linux username/password. If your work machine already has this distribution,
+use it. Corporate IT may need to enable WSL/virtualization and approve installation.
 
-## Key Components
+**2. In the Ubuntu terminal:**
 
-| Component | Path | Description |
-| :--- | :--- | :--- |
-| **`setup.sh`** | `./setup.sh` | Turnkey 1-command installer for Linux & WSL2 |
-| **`tuxcode`** | `bin/tuxcode` | Standalone Xcode clone IDE (Port 3000, 0.0.0.0 WSL friendly) |
-| **`tuxsim`** | `bin/tuxsim` | Real Apple iOS Simulator Suite (macOS KVM + noVNC Web Display) |
-| **`tuxmirror`** | `bin/tuxmirror` | High-speed direct USB screen mirror & touch server (Port 8080) |
-| **`tuxcodebuild`** | `bin/tuxcodebuild` | CLI compiler replacing `xcodebuild` |
-| **VS Code VSIX** | `vscode-tuxcode-0.1.0.vsix` | Ready-to-install VS Code extension package |
-| **Compiler** | `toolchain/clang` | LLVM Clang 21 with Darwin iOS arm64 cross-compilation |
-| **Mach-O Linker** | `toolchain/ld64.lld` | LLD Mach-O linker with `-platform_version` support |
-| **Build Engine** | `toolchain/ninja` | High-speed parallel build graph runner |
-| **Apple SDK** | `sdk/iPhoneOS.sdk` | Slim Apple iOS SDK headers and `.tbd` symbols |
-| **Code Signer** | `bin/rcodesign` | Pure Rust Apple code signing tool (ad-hoc & p12/profile) |
-| **Linux Simulator** | `bin/isim` | Native Linux iOS Simulator (SpringBoard, UIKit, SwiftUI) |
-| **Device Daemon** | `bin/ios` | High-speed Apple lockdown & USB communication engine |
-
----
-
-## ⚡ 1-Minute Quick Start
-
-### Step 1: Run Turnkey Setup
 ```bash
-git clone https://github.com/openworldprojects/xcode-linux-ide.git
+sudo apt-get update && sudo apt-get install -y git
+mkdir -p ~/Projects
+cd ~/Projects
+git clone https://github.com/OpenWorldProjects/xcode-linux-ide.git
 cd xcode-linux-ide
-./setup.sh
+./scripts/setup-wsl.sh
+./scripts/start-wsl.sh
 ```
 
-### Step 2: Launch TuxCode IDE
+The setup installs Ubuntu dependencies and downloads isim from its upstream
+installer. It asks for your Ubuntu password for `sudo`. Keep the checkout in
+`~/Projects`, rather than `/mnt/c`, for Linux filesystem performance.
+
+**3. Open http://localhost:3000 in your Windows browser.**
+
+Click the device dropdown beside **RNWixApp**, select the **third option,
+isim (Linux Simulator)**, then click **Open isim**. The simulator opens in a
+separate desktop window. Leave the Ubuntu terminal running; Ctrl+C stops the IDE.
+The macOS/KVM option is a legacy alternative and is not needed for this workflow.
+
+### Every subsequent session
+
+Open Ubuntu and run:
+
 ```bash
-./bin/tuxcode
-```
-Open **`http://localhost:3000`** in your browser (or `http://<WSL-IP>:3000` from Windows).
-- Project Navigator sidebar with file tree
-- Syntax-highlighted code editor
-- Integrated live iPhone screen mirror panel
-- Real-time build & run console
-- Keyboard shortcuts: `Ctrl+B` (Build), `Ctrl+R` (Run)
-
----
-
-## 🪟 Windows 11 + WSL2 Setup Guide
-
-To connect your physical iPhone to WSL2 Ubuntu over USB:
-
-### 1. Install `usbipd-win` on Windows
-Open Windows PowerShell (as Administrator):
-```powershell
-winget install usbipd
+cd ~/Projects/xcode-linux-ide
+./scripts/start-wsl.sh
 ```
 
-### 2. Share & Attach your iPhone to WSL2
-Plug in your iPhone via USB, unlock it, and run in PowerShell (Admin):
+Or launch just the simulator:
+
+```bash
+~/Projects/xcode-linux-ide/bin/isim open
+```
+
+### Try your first app
+
+In another Ubuntu terminal:
+
+```bash
+cd ~/Projects
+./xcode-linux-ide/bin/isim new HelloWorld --uikit
+cd HelloWorld
+../xcode-linux-ide/bin/isim build -project HelloWorld.xcodeproj
+../xcode-linux-ide/bin/isim run build/HelloWorld.app
+```
+
+This creates a separate sample project; run `new` only once. IDE Build/Run buttons
+are disabled for isim because project deployment is not integrated yet. Use these
+CLI commands for now. The bundled IDE navigator is a sample layout, not a complete
+project-opening workflow; its RNWixApp sample sources are not shipped in this repo.
+
+### Updating
+
+Stop the IDE with Ctrl+C, then:
+
+```bash
+cd ~/Projects/xcode-linux-ide
+git pull --ff-only
+./scripts/start-wsl.sh
+```
+
+Reload your browser with **Ctrl+Shift+R**. This is also the fix if you still see the
+old two-device selector. Restart the server after updates to enable new API routes.
+
+### If something does not open
+
+- **Port 3000 already in use:** stop the earlier IDE terminal/process, then retry.
+- **No simulator window:** run `./bin/isim boot` in Ubuntu to see the error. Check
+  `echo "$DISPLAY"` and `echo "$WAYLAND_DISPLAY"`. If both are empty, run
+  `wsl --update` and `wsl --shutdown` in PowerShell, then reopen Ubuntu. Shutdown
+  stops all your running WSL sessions, so save work first.
+- **Missing isim:** rerun `./scripts/setup-wsl.sh`. A custom installation can be
+  selected using `TUXCODE_ISIM_BIN=/absolute/path/to/isim`.
+- **Blank sample editor:** the RNWixApp demo files are not included. Use the
+  HelloWorld commands above; this is independent of simulator startup.
+
+## Optional: Windows VS Code
+
+Install Windows VS Code and Microsoft's WSL extension. From your Ubuntu project
+folder run `code .`; check the lower-left indicator says **WSL: Ubuntu-24.04**.
+Use its Ubuntu terminal for the same isim commands above.
+
+The TuxCode extension source is in `packages/vscode-tuxcode`. The older 0.1.0 VSIX
+has not been rebuilt with these changes; it is not required for the quick start.
+For a newly packaged extension, set `tuxcode.toolchainRoot` to your Linux checkout
+path, such as `/home/YOUR_USER/Projects/xcode-linux-ide`.
+
+## Optional: physical iPhone over USB
+
+The simulator setup does not install or configure the complete physical-device
+pipeline. For USB passthrough, install usbipd-win in Windows PowerShell:
+
 ```powershell
-# 1. List connected USB devices
+winget install --interactive --exact dorssel.usbipd-win
 usbipd list
-
-# Look for: Apple Mobile Device (e.g. BUSID 1-4)
-
-# 2. Bind the device (one-time)
+# Substitute your iPhone BUSID. This first bind needs administrator privileges:
 usbipd bind --busid 1-4
-
-# 3. Attach to WSL2
+# With Ubuntu running, subsequent attaches do not normally need elevation:
 usbipd attach --wsl --busid 1-4
 ```
 
-### 3. Verify Inside WSL2 Ubuntu
-Inside your WSL terminal:
-```bash
-tuxcodebuild doctor
-```
-Your iPhone (e.g. `Connected iPhone (iPhone17,2)`) will be recognized immediately over USB!
+Unlock the phone and accept Trust when prompted. Development installation also
+requires valid Apple-issued signing credentials/profiles and Developer Mode where
+applicable. Organization policy may restrict these actions. The helper
+`scripts/attach-iphone.ps1` provides the same bind/attach steps.
 
----
+## Current limits and architecture
 
-## 💻 VS Code Extension
+isim is an iOS-compatible Linux implementation, not Apple's official Simulator.
+Do not assume full React Native, TurboModule, Fabric, or Wix Navigation compatibility
+until the specific application has passed testing.
 
-TuxCode includes a packaged extension: **`vscode-tuxcode-0.1.0.vsix`**.
+The physical build CLI in this checkout has a recursive launcher defect, and the
+Ninja generator does not implement the full Xcode/CocoaPods build graph. The WSL
+quick start deliberately uses the independent isim toolchain. The legacy `setup.sh`
+is not the recommended WSL entry point; it invokes that build CLI.
 
-### Installation (Windows 11 or Linux)
-1. **If using Windows 11**: Open your project in VS Code connected to WSL:
-   - In your WSL terminal, run: `code .` (or in Windows VS Code, click the green `><` button in the bottom-left and choose **"Connect to WSL"**).
-2. In VS Code, press `Ctrl+Shift+X` (Extensions).
-3. Click the `...` menu in the top-right of the Extensions panel.
-4. Select **"Install from VSIX..."** and choose `vscode-tuxcode-0.1.0.vsix`.
+See [the platform review and implementation roadmap](docs/platform-roadmap.md)
+for signing, native compatibility research, WSL improvements, and validation gaps.
 
-### Features
-- **Activity Bar View**: Browse connected iOS devices and trigger 1-click actions.
-- **Status Bar**: Real-time connected device and USB status (`📱 Connected iPhone`).
-- **Command Palette (`Ctrl+Shift+P`)**:
-  - `TuxCode: Build iOS Project`
-  - `TuxCode: Run on Connected iPhone`
-  - `TuxCode: Open Live iPhone Screen Mirror` (opens a live device tab beside your code!)
-  - `TuxCode: Run Toolchain Doctor`
+| Component | Location |
+| --- | --- |
+| Web IDE | `packages/tuxcode-ide` |
+| Native Linux simulator wrapper | `bin/isim` |
+| WSL setup / daily launch | `scripts/setup-wsl.sh`, `scripts/start-wsl.sh` |
+| Build and device modules | `packages/tuxcodebuild` |
+| VS Code extension | `packages/vscode-tuxcode` |
+| USB mirror | `bin/tuxmirror` |
 
----
-
-## 📱 Code Signing & Physical iPhone Running
-
-### Why does physical iOS show "Integrity could not be verified"?
-Non-jailbroken physical iPhones enforce **AMFI (Apple Mobile File Integrity)**. Ad-hoc/self-signed apps are rejected unless signed with an Apple Developer Certificate and an `embedded.mobileprovision` listing your device's UDID.
-
-### How to Sign for Physical Devices:
-When building for your real iPhone with a certificate:
-```bash
-# Provide your .p12 and .mobileprovision:
-tuxcodebuild build /path/to/project/ios \
-  --p12=developer.p12 \
-  --p12-password=secret \
-  --profile=development.mobileprovision
-
-# Run directly on device:
-tuxcodebuild run /path/to/project/ios
-```
-
-### On First Launch on iOS 16/17/18:
-1. Open **Settings** on your iPhone.
-2. Go to **General** ➔ **VPN & Device Management**.
-3. Under *Developer App*, tap your certificate and choose **Trust**.
-
----
-
-## 🧪 Linux iOS Simulator (`isim`)
-
-For fast local UI testing without code signing restrictions:
-```bash
-# Boot the iOS Simulator with SpringBoard
-./bin/isim boot
-
-# Build and run an app in the simulator
-./bin/isim run build/Payload/YourApp.app
-```
-- Click to touch, drag to swipe
-- Swipe up from the bottom edge (or `Ctrl+Shift+H`) to go Home
-- Supports iOS 17 & 18 layouts
-
----
-
-## 📦 React Native 0.86 & CocoaPods Compatibility
-
-TuxCode handles:
-- React Native 0.86+ New Architecture TurboModules & Fabric
-- Wix Navigation (`react-native-navigation` 8.8.11)
-- CocoaPods dependencies via Linux compatibility shims (`xcrun`, `xcodebuild`, `xcode-select`)
-- `.xcworkspace` and `.xcodeproj` project structure parsing
+Upstream references: [isim](https://github.com/kolabs-dev/isim),
+[WSL installation](https://learn.microsoft.com/en-us/windows/wsl/install),
+[WSLg applications](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps),
+[WSL USB](https://learn.microsoft.com/en-us/windows/wsl/connect-usb).

@@ -1,1 +1,8 @@
-/home/ella/.local/bin/isim
+#!/usr/bin/env bash
+set -euo pipefail
+isim_bin="${TUXCODE_ISIM_BIN:-$HOME/.local/bin/isim}"
+if [[ ! -x "$isim_bin" ]]; then
+  echo 'isim is missing. Run ./scripts/setup-wsl.sh from the TuxCode checkout.' >&2
+  exit 1
+fi
+exec "$isim_bin" "$@"

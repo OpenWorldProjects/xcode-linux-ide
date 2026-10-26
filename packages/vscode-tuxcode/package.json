@@ -64,6 +64,25 @@
           "name": "Project & Build Actions"
         }
       ]
+    },
+    "configuration": {
+      "title": "TuxCode",
+      "properties": {
+        "tuxcode.toolchainRoot": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Absolute Linux/WSL path to the TuxCode checkout. Required for packaged installations."
+        }
+      }
+    }
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
     }
   }
 }
