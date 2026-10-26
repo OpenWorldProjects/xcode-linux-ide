@@ -121,12 +121,42 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Dynamic Mirror host for WSL & remote IP access
+// Target Switching: Real iPhone 16 Pro (USB Mirror) <-> Real Apple iOS Simulator (macOS KVM)
+const deviceLabel = document.getElementById('deviceLabel');
+const schemePicker = document.getElementById('schemePicker');
+const connBadge = document.getElementById('connBadge');
 const mirrorIframe = document.getElementById('mirrorIframe');
-if (mirrorIframe) {
+
+let isSimulatorMode = false;
+
+function updateTargetView() {
   const host = window.location.hostname || '127.0.0.1';
-  mirrorIframe.src = `http://${host}:8080`;
+  if (isSimulatorMode) {
+    deviceLabel.textContent = 'Apple iOS Simulator (macOS KVM)';
+    connBadge.textContent = 'KVM Active • Port 6080';
+    if (mirrorIframe) {
+      mirrorIframe.src = `http://${host}:6080/vnc.html?autoconnect=true`;
+    }
+  } else {
+    deviceLabel.textContent = 'Dino’s iPhone (iPhone 16 Pro)';
+    connBadge.textContent = 'USB Connected • 43 FPS';
+    if (mirrorIframe) {
+      mirrorIframe.src = `http://${host}:8080`;
+    }
+  }
 }
+
+if (schemePicker) {
+  schemePicker.style.cursor = 'pointer';
+  schemePicker.title = 'Click to switch between Physical iPhone and Apple iOS Simulator';
+  schemePicker.addEventListener('click', () => {
+    isSimulatorMode = !isSimulatorMode;
+    updateTargetView();
+  });
+}
+
+// Initial target setup
+updateTargetView();
 
 // Initial load
 loadFile('AppDelegate.mm');
