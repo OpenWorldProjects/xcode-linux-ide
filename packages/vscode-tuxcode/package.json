@@ -1,0 +1,69 @@
+{
+  "name": "vscode-tuxcode",
+  "displayName": "TuxCode - Linux iOS & React Native IDE",
+  "description": "Develop, build, and run iOS & React Native apps natively on Linux without macOS",
+  "version": "0.1.0",
+  "publisher": "tuxcode",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers",
+    "Other"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "tuxcode.build",
+        "title": "TuxCode: Build iOS Project (Ninja + Clang)",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "tuxcode.run",
+        "title": "TuxCode: Run on Connected iPhone",
+        "icon": "$(play)"
+      },
+      {
+        "command": "tuxcode.mirror",
+        "title": "TuxCode: Open Live iPhone Screen Mirror",
+        "icon": "$(device-mobile)"
+      },
+      {
+        "command": "tuxcode.doctor",
+        "title": "TuxCode: Run Toolchain Doctor",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "tuxcode.syslog",
+        "title": "TuxCode: Stream Device Syslog",
+        "icon": "$(output)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tuxcode-explorer",
+          "title": "TuxCode iOS",
+          "icon": "media/tuxcode-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "tuxcode-explorer": [
+        {
+          "id": "tuxcode.devices",
+          "name": "Connected iOS Devices"
+        },
+        {
+          "id": "tuxcode.actions",
+          "name": "Project & Build Actions"
+        }
+      ]
+    }
+  }
+}

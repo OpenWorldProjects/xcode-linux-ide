@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>tuxmirror - Direct USB Live View & Touch Control</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #090d16;
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    .header {
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #58a6ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .header p {
+      font-size: 12px;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+    .badges {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 5px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .badge-usb {
+      background: rgba(31, 111, 235, 0.15);
+      border: 1px solid #1f6feb;
+      color: #58a6ff;
+    }
+    .badge-live {
+      background: rgba(35, 134, 54, 0.15);
+      border: 1px solid #238636;
+      color: #3fb950;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
+    }
+    .phone-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Side Buttons */
+    .btn-side {
+      position: absolute;
+      background: #30363d;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-side:hover { background: #58a6ff; }
+    .btn-side:active { transform: scale(0.96); }
+    .btn-volume-up { left: -14px; top: 140px; width: 4px; height: 50px; }
+    .btn-volume-down { left: -14px; top: 200px; width: 4px; height: 50px; }
+    .btn-power { right: -14px; top: 160px; width: 4px; height: 75px; }
+
+    .phone-wrapper {
+      position: relative;
+      width: 375px;
+      height: 812px;
+      background: #000;
+      border-radius: 52px;
+      box-shadow: 0 0 0 10px #1c2128, 0 0 0 12px #30363d, 0 25px 50px rgba(0, 0, 0, 0.9);
+      overflow: hidden;
+      border: 2px solid #000;
+      cursor: crosshair;
+    }
+    .island {
+      position: absolute;
+      top: 13px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 30px;
+      background: #000;
+      border-radius: 20px;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 135px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 3px;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .home-indicator:hover { background: #58a6ff; }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #000;
+    }
+    .ripple {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(88, 166, 255, 0.6);
+      transform: translate(-50%, -50%) scale(0);
+      animation: ripple 0.35s ease-out;
+      pointer-events: none;
+      z-index: 99;
+    }
+    @keyframes ripple {
+      to { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🐧 tuxmirror</h1>
+    <p>Dino's iPhone 16 Pro &bull; Direct USB Cable Mirror & Touch Control</p>
+    <div class="badges">
+      <span class="badge badge-usb"><span class="dot"></span> Direct USB Bus</span>
+      <span class="badge badge-live"><span class="dot"></span> Live (<span id="fps">0</span> FPS)</span>
+    </div>
+  </div>
+
+  <div class="phone-container">
+    <div class="btn-side btn-volume-up" title="Volume Up" onclick="sendButton('volumeUp')"></div>
+    <div class="btn-side btn-volume-down" title="Volume Down" onclick="sendButton('volumeDown')"></div>
+    <div class="btn-side btn-power" title="Lock / Power" onclick="sendButton('lock')"></div>
+
+    <div class="phone-wrapper" id="phoneWrapper">
+      <div class="island" title="Tap Dynamic Island" onclick="sendButton('home')"></div>
+      <div class="home-indicator" title="Home Gesture" onclick="sendButton('home')"></div>
+      <canvas id="screen" width="1125" height="2436"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d');
+    const fpsLabel = document.getElementById('fps');
+    const wrapper = document.getElementById('phoneWrapper');
+
+    // iPhone 16 Pro native dimensions & points
+    const DEVICE_POINTS_W = 393;
+    const DEVICE_POINTS_H = 852;
+
+    let frames = 0;
+    let lastFpsTime = Date.now();
+    let isFetching = false;
+
+    // Render loop
+    function renderLoop() {
+      if (isFetching) return;
+      isFetching = true;
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        frames++;
+        const now = Date.now();
+        if (now - lastFpsTime >= 1000) {
+          fpsLabel.textContent = frames;
+          frames = 0;
+          lastFpsTime = now;
+        }
+        isFetching = false;
+        requestAnimationFrame(renderLoop);
+      };
+
+      img.onerror = () => {
+        isFetching = false;
+        setTimeout(renderLoop, 200);
+      };
+
+      img.src = '/frame?t=' + Date.now();
+    }
+    renderLoop();
+
+    // Touch Event Handling
+    let startX = 0, startY = 0, isMouseDown = false;
+
+    wrapper.addEventListener('mousedown', (e) => {
+      const rect = wrapper.getBoundingClientRect();
+      startX = e.clientX - rect.left;
+      startY = e.clientY - rect.top;
+      isMouseDown = true;
+      showRipple(startX, startY);
+    });
+
+    wrapper.addEventListener('mouseup', (e) => {
+      if (!isMouseDown) return;
+      isMouseDown = false;
+      const rect = wrapper.getBoundingClientRect();
+      const endX = e.clientX - rect.left;
+      const endY = e.clientY - rect.top;
+
+      const deltaX = Math.abs(endX - startX);
+      const deltaY = Math.abs(endY - startY);
+
+      if (deltaX < 10 && deltaY < 10) {
+        // Simple Tap
+        const normX = (startX / rect.width) * DEVICE_POINTS_W;
+        const normY = (startY / rect.height) * DEVICE_POINTS_H;
+        sendTap(normX, normY);
+      } else {
+        // Swipe
+        const fromX = (startX / rect.width) * DEVICE_POINTS_W;
+        const fromY = (startY / rect.height) * DEVICE_POINTS_H;
+        const toX = (endX / rect.width) * DEVICE_POINTS_W;
+        const toY = (endY / rect.height) * DEVICE_POINTS_H;
+        sendSwipe(fromX, fromY, toX, toY);
+      }
+    });
+
+    function showRipple(x, y) {
+      const r = document.createElement('div');
+      r.className = 'ripple';
+      r.style.left = x + 'px';
+      r.style.top = y + 'px';
+      wrapper.appendChild(r);
+      setTimeout(() => r.remove(), 400);
+    }
+
+    function sendTap(x, y) {
+      fetch('/api/tap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ x, y })
+      }).catch(console.error);
+    }
+
+    function sendSwipe(fromX, fromY, toX, toY) {
+      fetch('/api/swipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromX, fromY, toX, toY })
+      }).catch(console.error);
+    }
+
+    function sendButton(btn) {
+      fetch('/api/button', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ button: btn })
+      }).catch(console.error);
+    }
+  </script>
+</body>
+</html>

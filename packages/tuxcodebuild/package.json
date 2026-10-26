@@ -1,0 +1,23 @@
+{
+  "name": "tuxcodebuild",
+  "version": "0.1.0",
+  "description": "Universal Linux/WSL Xcode alternative and build runner for iOS & React Native",
+  "main": "src/cli.js",
+  "bin": {
+    "tuxcodebuild": "./src/cli.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/cli.js"
+  },
+  "keywords": [
+    "xcode",
+    "xcodebuild",
+    "ios",
+    "react-native",
+    "linux",
+    "wsl"
+  ],
+  "author": "",
+  "license": "MIT"
+}

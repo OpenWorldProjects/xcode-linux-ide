@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# TuxCode xcrun shim for Linux
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+TOOL=""
+SDK="iphoneos"
+FIND_MODE=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --show-sdk-path)
+      echo "${ROOT_DIR}/sdk/iPhoneOS.sdk"
+      exit 0
+      ;;
+    --show-sdk-version)
+      echo "16.5"
+      exit 0
+      ;;
+    -find|--find)
+      FIND_MODE=1
+      shift
+      ;;
+    -sdk|--sdk)
+      shift
+      SDK="$1"
+      shift
+      ;;
+    clang)
+      exec "${ROOT_DIR}/toolchain/clang" "$@"
+      ;;
+    clang++)
+      exec "${ROOT_DIR}/toolchain/clang++" "$@"
+      ;;
+    xcodebuild)
+      shift
+      exec "${ROOT_DIR}/bin/tuxcodebuild" "$@"
+      ;;
+    *)
+      if [ -z "$TOOL" ]; then
+        TOOL="$1"
+      fi
+      shift
+      ;;
+  esac
+done
+
+if [ "$FIND_MODE" -eq 1 ]; then
+  case "$TOOL" in
+    cc|gcc|clang)
+      echo "${ROOT_DIR}/toolchain/clang"
+      exit 0
+      ;;
+    c++|g++|clang++)
+      echo "${ROOT_DIR}/toolchain/clang++"
+      exit 0
+      ;;
+    *)
+      which "$TOOL" 2>/dev/null || echo "${ROOT_DIR}/bin/$TOOL"
+      exit 0
+      ;;
+  esac
+fi
+
+echo "${ROOT_DIR}/sdk/iPhoneOS.sdk"
+

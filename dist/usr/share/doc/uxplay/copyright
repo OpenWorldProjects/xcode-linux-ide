@@ -1,0 +1,78 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: uxplay
+Upstream-Contact: Florian Draschbacher
+Source: https://github.com/FDH2/UxPlay
+
+Files: *
+Copyright: 2019-2026 Florian Draschbacher
+           2020 Jaslo Ziska
+License: GPL-3-or-later
+
+License: GPL-3-or-later
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software Foundation,
+ Inc., 31 Milk St # 960789, Boston, MA 02196 USA
+
+Files: lib/playfair/*
+Copyright: 2007 Free Software Foundation, Inc. (http://fsf.org/)
+License: GPL-3-or-later
+
+Files: lib/byteutils.* lib/compat.h lib/dnssd.* lib/http*.* lib/logger.* lib/utils.* lib/threads.h lib/stream.h lib/netutils.* lib/mirror_buffer.* lib/raop*.*
+Copyright: 2019 dsafa22, All Rights Reserved.
+           2011-2012, 2018 Juho Vähä-Herttua
+           2020 Jaslo Ziska
+           2014 Joakim Plate
+           2019 Florian Draschbacher
+License: LGPL-2.1-or-later
+ Please see /usr/share/common-licenses/LGPL-2.1
+
+Files: lib/llhttp/*
+Copyright: 2018 Fedor Indutny
+License: MIT
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the
+ "Software"), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to permit
+ persons to whom the Software is furnished to do so, subject to the
+ following conditions:
+ .
+ The above copyright notice and this permission notice shall be included
+ in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+ NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+ USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Files: debian/*
+Copyright: 2021-2026 Alex Myczko <tar@debian.org>
+License: GPL-2+
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <https://www.gnu.org/licenses/>
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".

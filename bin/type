@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# TuxCode compatibility wrapper for bash builtin 'type'
+type "$@"

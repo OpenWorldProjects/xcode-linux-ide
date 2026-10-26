@@ -1,0 +1,11 @@
+{
+  "name": "tuxcode-ide",
+  "version": "0.1.0",
+  "description": "TuxCode - Native Xcode IDE Clone for Linux & WSL",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {},
+  "license": "MIT"
+}

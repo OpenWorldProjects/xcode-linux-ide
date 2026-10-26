@@ -1,0 +1,14 @@
+node_modules/
+devimages/
+certs/
+*.png
+*.tmp
+*.zip
+*.ipa
+bin/ios-amd64
+bin/ios-arm64
+bin/apple-codesign-*
+test-projects/
+WebDriverAgentRunner-*/
+*.vsix
+kvm/

@@ -1,0 +1,9 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/runner/work/WebDriverAgent/WebDriverAgent/appium_wda_ios/Build/Products/Debug-iphoneos/WebDriverAgentRunner-Runner.app/PlugIns/WebDriverAgentRunner.xctest/WebDriverAgentRunner'
+relocations:
+  - { offset: 0x5BD60, size: 0x8, addend: 0x0, symName: '+[UITestingUITests setUp]', symObjAddr: 0x0, symBinAddr: 0x4000, symSize: 0x1E0 }
+  - { offset: 0x5BD8F, size: 0x8, addend: 0x0, symName: '+[UITestingUITests setUp]', symObjAddr: 0x0, symBinAddr: 0x4000, symSize: 0x1E0 }
+  - { offset: 0x5BDC4, size: 0x8, addend: 0x0, symName: '-[UITestingUITests testRunner]', symObjAddr: 0x1E0, symBinAddr: 0x41E0, symSize: 0x60 }
+  - { offset: 0x5BE08, size: 0x8, addend: 0x0, symName: '-[UITestingUITests webServerDidRequestShutdown:]', symObjAddr: 0x240, symBinAddr: 0x4240, symSize: 0x58 }
+...

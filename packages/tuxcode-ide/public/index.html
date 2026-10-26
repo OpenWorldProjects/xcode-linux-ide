@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TuxCode - Xcode for Linux</title>
+  <link rel="stylesheet" href="/css/xcode.css">
+</head>
+<body>
+
+  <!-- Top Xcode 16 Toolbar -->
+  <header class="toolbar">
+    <div class="traffic-lights">
+      <div class="traffic-dot red"></div>
+      <div class="traffic-dot yellow"></div>
+      <div class="traffic-dot green"></div>
+    </div>
+
+    <div class="tool-actions">
+      <button class="tool-btn btn-run" id="btnRun" title="Build & Run on Device (⌘R)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <polygon points="6 4 20 12 6 20 6 4"/>
+        </svg>
+      </button>
+      <button class="tool-btn" id="btnBuild" title="Build Project (⌘B)">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <rect x="5" y="5" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Scheme Picker -->
+    <div class="scheme-selector" id="schemePicker">
+      <span class="scheme-target">RNWixApp</span>
+      <span class="scheme-arrow">&gt;</span>
+      <span class="scheme-device" id="deviceLabel">Dino’s iPhone (iPhone 16 Pro)</span>
+      <span style="font-size: 10px; margin-left: 4px;">▾</span>
+    </div>
+
+    <!-- Activity Capsule -->
+    <div class="activity-capsule">
+      <span class="capsule-text" id="statusText">RNWixApp : Ready</span>
+      <div class="capsule-badge">
+        <span class="pulse-dot"></span>
+        <span id="connBadge">USB Connected &bull; 43 FPS</span>
+      </div>
+    </div>
+
+    <div class="tool-actions" style="margin-left: auto;">
+      <button class="tool-btn active" id="toggleMirror" title="Toggle Live Mirror View">📱</button>
+      <button class="tool-btn active" id="toggleConsole" title="Toggle Console">📋</button>
+    </div>
+  </header>
+
+  <!-- IDE Main Body -->
+  <main class="ide-body">
+
+    <!-- Project Navigator Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">Project Navigator</div>
+      <div class="file-tree" id="fileTree">
+        <div class="tree-item active" data-file="AppDelegate.mm"><span class="tree-icon">📄</span> AppDelegate.mm</div>
+        <div class="tree-item" data-file="AppDelegate.h"><span class="tree-icon">📄</span> AppDelegate.h</div>
+        <div class="tree-item" data-file="main.m"><span class="tree-icon">📄</span> main.m</div>
+        <div class="tree-item" data-file="Info.plist"><span class="tree-icon">⚙️</span> Info.plist</div>
+        <div class="tree-item" data-file="Podfile"><span class="tree-icon">📦</span> Podfile</div>
+      </div>
+    </aside>
+
+    <!-- Center Code Editor -->
+    <section class="editor-container">
+      <div class="editor-tabs">
+        <div class="editor-tab" id="activeTabName">AppDelegate.mm</div>
+      </div>
+      <textarea class="code-area" id="codeEditor" spellcheck="false"></textarea>
+
+      <!-- Bottom Console Area -->
+      <div class="console-panel" id="consolePanel">
+        <div class="console-header">
+          <span>Build & Device Output</span>
+          <button style="background:transparent; border:none; color:#888; cursor:pointer;" id="clearConsole">Clear</button>
+        </div>
+        <div class="console-body" id="consoleLog">Welcome to TuxCode IDE v0.1.0
+Connected to Dino's iPhone 16 Pro over USB.
+Ready to build and test.</div>
+      </div>
+    </section>
+
+    <!-- Right Integrated Live Device Mirror Panel -->
+    <aside class="mirror-panel" id="mirrorPanel">
+      <iframe class="mirror-iframe" id="mirrorIframe" src=""></iframe>
+    </aside>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

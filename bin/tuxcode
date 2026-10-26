@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -e
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IDE_PORT=3000
+MIRROR_PORT=8080
+
+# 1. Start USB Mirror daemon if not running
+if ! ss -tlpn | grep -q ":${MIRROR_PORT} "; then
+    echo "Starting tuxmirror USB capture engine..."
+    node "${DIR}/../packages/tuxcodebuild/src/usb-mirror.js" >/dev/null 2>&1 &
+    sleep 1
+fi
+
+# 2. Start TuxCode IDE server if not running
+if ! ss -tlpn | grep -q ":${IDE_PORT} "; then
+    echo "Starting TuxCode IDE server..."
+    node "${DIR}/../packages/tuxcode-ide/src/server.js" >/dev/null 2>&1 &
+    sleep 1
+fi
+
+echo "=========================================================="
+echo "🐧 TuxCode IDE - Native Xcode Alternative for Linux"
+echo "=========================================================="
+echo "Opening standalone TuxCode window..."
+
+export DISPLAY="${DISPLAY:-:0}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}"
+
+if command -v google-chrome >/dev/null 2>&1; then
+    exec google-chrome --app="http://127.0.0.1:${IDE_PORT}" --window-size=1400,900
+elif command -v firefox >/dev/null 2>&1; then
+    exec firefox --new-window "http://127.0.0.1:${IDE_PORT}"
+else
+    echo "Open TuxCode in browser: http://127.0.0.1:${IDE_PORT}"
+fi
