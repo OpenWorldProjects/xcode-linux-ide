@@ -119,6 +119,31 @@ window.addEventListener('keydown', event => {
 updateTargetView();
 
 // AI Copilot Plugin
+function updateLlmIndicator(text, state = 'ready') {
+  if (!$('llmIndicatorText')) return;
+  $('llmIndicatorText').textContent = text;
+  if ($('llmIndicatorDot')) {
+    if (state === 'busy') {
+      $('llmIndicatorDot').style.background = '#e3b341';
+      $('llmIndicatorDot').style.boxShadow = '0 0 8px #e3b341';
+    } else if (state === 'overnight') {
+      $('llmIndicatorDot').style.background = '#a371f7';
+      $('llmIndicatorDot').style.boxShadow = '0 0 8px #a371f7';
+    } else {
+      $('llmIndicatorDot').style.background = '#30d158';
+      $('llmIndicatorDot').style.boxShadow = '0 0 8px #30d158';
+    }
+  }
+}
+
+if ($('llmProvider')) {
+  $('llmProvider').onchange = () => {
+    const val = $('llmProvider').value;
+    const name = val === 'ollama' ? 'Ollama' : (val === 'vllm' ? 'vLLM' : 'Built-in');
+    updateLlmIndicator('🤖 LLM: ' + name + ' (Ready)', 'ready');
+  };
+}
+
 if ($('toggleCopilot')) {
   $('toggleCopilot').onclick = () => {
     $('copilotPanel').style.display = $('copilotPanel').style.display === 'none' ? 'flex' : 'none';
@@ -145,6 +170,8 @@ async function sendCopilotMessage(customPrompt) {
   chat.appendChild(thinkingDiv);
   chat.scrollTop = chat.scrollHeight;
 
+  updateLlmIndicator('🤖 LLM: Generating...', 'busy');
+
   try {
     const res = await api('llm/chat', {
       prompt: text,
@@ -157,8 +184,12 @@ async function sendCopilotMessage(customPrompt) {
     aiDiv.style.cssText = 'background: #21262d; color: #c9d1d9; padding: 8px 10px; border-radius: 6px; white-space: pre-wrap; line-height: 1.4;';
     aiDiv.innerHTML = `<strong>🤖 TuxCode Copilot:</strong><br>${res.reply.replace(/</g, '&lt;').replace(/>/g, '&gt;')}`;
     chat.appendChild(aiDiv);
+    const val = $('llmProvider').value;
+    const name = val === 'ollama' ? 'Ollama' : (val === 'vllm' ? 'vLLM' : 'Built-in');
+    updateLlmIndicator('🤖 LLM: ' + name + ' (Ready)', 'ready');
   } catch (err) {
     thinkingDiv.textContent = '❌ ' + err.message;
+    updateLlmIndicator('❌ LLM: Error', 'busy');
   }
   chat.scrollTop = chat.scrollHeight;
 }
@@ -167,6 +198,7 @@ if ($('btnSendPrompt')) $('btnSendPrompt').onclick = () => sendCopilotMessage();
 if ($('copilotInput')) $('copilotInput').onkeydown = e => { if (e.key === 'Enter') sendCopilotMessage(); };
 if ($('btnFixErrors')) $('btnFixErrors').onclick = () => sendCopilotMessage('Analyze current build diagnostics and fix errors.');
 if ($('btnOvernightMode')) $('btnOvernightMode').onclick = async () => {
+  updateLlmIndicator('🌙 LLM: Overnight Loop Active (00:00–07:00)', 'overnight');
   sendCopilotMessage('Activate Overnight Autonomous Task Loop (00:00 to 07:00).');
   const res = await api('llm/overnight', {});
   log('[Overnight Task] ' + res.message);

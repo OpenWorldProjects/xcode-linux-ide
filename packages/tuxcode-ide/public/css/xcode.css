@@ -94,24 +94,47 @@ body {
 /* Center Activity Capsule */
 .activity-capsule {
   flex: 1;
-  max-width: 480px;
+  max-width: 620px;
   margin: 0 auto;
   background: var(--bg-capsule);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 5px 12px;
+  padding: 4px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   font-size: 12px;
 }
-.capsule-text { font-weight: 500; color: var(--text-muted); }
+.capsule-text { font-weight: 500; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
 .capsule-badge {
   display: flex;
   align-items: center;
   gap: 5px;
   color: var(--accent-green);
   font-size: 11px;
+}
+.pill-btn {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.pill-btn:hover { background: #30363d; color: #fff; }
+.pill-btn.active {
+  background: rgba(10, 132, 255, 0.18);
+  border-color: rgba(10, 132, 255, 0.45);
+  color: #58a6ff;
 }
 .pulse-dot {
   width: 6px;
