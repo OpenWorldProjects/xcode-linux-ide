@@ -12,47 +12,51 @@ function log(msg) {
   fs.appendFileSync(LOG_FILE, line);
 }
 
-async function verifyProjects() {
-  log('--- Starting Autonomous Build Plan Verification Pass ---');
-  const samplePaths = [
-    'test-projects/rnn-upstream/playground/ios',
-    'test-projects/onesignal-upstream/OneSignal.xcworkspace',
-    'test-projects/sentry-upstream/Sentry.xcworkspace'
-  ];
+async function compileTargets() {
+  log('--- [Xcode Linux IDE] Running Real Clang-21 Compilation Passes ---');
+  const project = path.join(ROOT, 'test-projects/rnn-upstream/playground/ios/playground.xcodeproj');
+  const clangPath = path.join(ROOT, 'toolchain/usr/bin/clang-21');
+  const rnnInclude = path.join(ROOT, 'test-projects/rnn-upstream/ios');
 
-  for (const p of samplePaths) {
-    const fullPath = path.join(ROOT, p);
-    if (!fs.existsSync(fullPath)) continue;
+  const env = {
+    ...process.env,
+    CLANG: clangPath,
+    HEADER_SEARCH_PATHS: `${rnnInclude} ${path.join(ROOT, 'test-projects/rnn-upstream/playground/ios')}`
+  };
+
+  const schemes = ['SnapshotTests', 'playground', 'playgroundIOS12'];
+  for (const scheme of schemes) {
     try {
-      const report = await projects.inspect({ projectPath: p });
-      const scheme = report.schemes?.find(s => s.name === 'playground')?.id || report.schemes?.[0]?.id;
-      const planReport = await projects.inspect({ projectPath: p, scheme, action: 'plan' });
-      log(`[Verified] ${path.basename(p)} (${planReport.scheme?.name || 'scheme'}): ${planReport.steps?.length || 0} build steps resolved.`);
-      if (report.diagnostics?.length) {
-        log(`  Diagnostics: ${report.diagnostics.join('; ')}`);
-      }
-    } catch (err) {
-      log(`[Notice] ${path.basename(p)}: ${err.message}`);
+      log(`Compiling scheme: ${scheme}...`);
+      const res = require('child_process').spawnSync(
+        path.join(ROOT, 'bin/isim'),
+        ['build', '-project', project, '-target', scheme, '-configuration', 'Debug'],
+        { env, cwd: ROOT, encoding: 'utf8', timeout: 60000 }
+      );
+      const out = (res.stdout || '') + '\n' + (res.stderr || '');
+      const firstLines = out.split('\n').filter(l => l.trim()).slice(0, 5).join('\n  ');
+      log(`Result for ${scheme}:\n  ${firstLines}`);
+    } catch (e) {
+      log(`Notice for ${scheme}: ${e.message}`);
     }
   }
 }
 
 async function main() {
-  log('=== TuxCode Overnight Autonomous Loop Initiated (Target End: 07:00:00) ===');
+  log('=== TuxCode Overnight Autonomous Loop Initiated (Target End: 07:35:00) ===');
   
-  // Initial pass
-  await verifyProjects();
+  // Initial compilation pass
+  await compileTargets();
 
-  const intervalMs = 30 * 60 * 1000; // Run every 30 minutes
+  const intervalMs = 15 * 60 * 1000; // Run compilation pass every 15 minutes
   const timer = setInterval(async () => {
     const now = new Date();
-    // Stop at 7:00 AM
-    if (now.getHours() >= 7 && now.getMinutes() >= 0) {
-      log('=== 07:00:00 Reached. Overnight Autonomous Loop Completed Successfully. ===');
+    if (now.getHours() >= 7 && now.getMinutes() >= 35) {
+      log('=== 07:35:00 Reached. Overnight Autonomous Loop Completed Successfully. ===');
       clearInterval(timer);
       process.exit(0);
     }
-    await verifyProjects();
+    await compileTargets();
   }, intervalMs);
 }
 

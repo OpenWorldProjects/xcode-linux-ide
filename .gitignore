@@ -13,3 +13,4 @@ WebDriverAgentRunner-*/
 *.vsix
 kvm/
 scratch/
+build/
